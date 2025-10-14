@@ -1,43 +1,78 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import mysql.connector
-from werkzeug.security import generate_password_hash
+from flask_bcrypt import Bcrypt
+import os
+from dotenv import load_dotenv
+
+load_dotenv() 
 
 app = Flask(__name__)
+CORS(app)
+bcrypt = Bcrypt(app) # Initialize Bcrypt for password hashing
 
-# Connect to MySQL
-db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="yourpassword",
-    database="attendance_system"
-)
+db_config = {
+    'host': os.getenv('DB_HOST'),
+    'port': os.getenv('DB_PORT'),
+    'user': os.getenv('DB_USERNAME'),
+    'password': os.getenv('DB_PASSWORD'),
+    'database': os.getenv('DB_DATABASE')
+}
+
+def get_db_connection():
+    return mysql.connector.connect(
+        host=db_config['host'],
+        port=int(db_config['port']),
+        user=db_config['user'],
+        password=db_config['password'],
+        database=db_config['database']
+    )
 
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
+
+    if not data:
+        return jsonify({'message': 'No data provided'}), 400
+
     username = data.get('username')
     email = data.get('email')
-    password = data.get('password')
+    password = data.get('password') 
 
-    if not username or not email or not password:
-        return jsonify({"status": "error", "message": "Missing fields"}), 400
+    if not all([username, email, password]):
+        return jsonify({'message': 'Missing username, email, or password'}), 400
 
-    cursor = db.cursor(dictionary=True)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    # Check if email exists
-    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-    if cursor.fetchone():
-        return jsonify({"status": "error", "message": "Email already registered"}), 400
+        cursor.execute("SELECT * FROM users WHERE username = %s OR email = %s", (username, email))
+        existing_user = cursor.fetchone()
 
-    # Hash password and insert
-    hashed_password = generate_password_hash(password)
-    cursor.execute(
-        "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)",
-        (username, email, hashed_password)
-    )
-    db.commit()
+        if existing_user:
+            return jsonify({'message': 'Username or email already exists'}), 409
 
-    return jsonify({"status": "success", "message": "User registered successfully"}), 201
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
+        sql = "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)"
+        cursor.execute(sql, (username, email, hashed_password))
+        conn.commit()
+
+        return jsonify({'message': 'User registered successfully'}), 201
+
+    except mysql.connector.Error as err:
+        print(f"Database Error: {err}")
+        return jsonify({'message': 'Database error occurred during registration'}), 500
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return jsonify({'message': 'An internal server error occurred'}), 500
+
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5001)

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'login.dart';
-import 'signup.dart';
+import 'package:userinterface/login.dart';
+import 'package:userinterface/signup.dart';
 
 void main() {
   runApp(const SmartAttendanceApp());
@@ -70,7 +70,7 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 48),
 
-              // 🔹 Log in Button
+              // 🔹 Log in Button → Go to LoginPage
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -109,7 +109,7 @@ class HomePage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // 🔹 Sign Up Button
+              // 🔹 Sign Up Button → Go to SignUpPage
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -131,9 +131,7 @@ class HomePage extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const SignUpPage(),
-                      ),
+                      MaterialPageRoute(builder: (context) => SignupPage()),
                     );
                   },
                   child: Text(

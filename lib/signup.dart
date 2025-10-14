@@ -2,42 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'login.dart';
-
-void main() {
-  runApp(const SmartAttendanceApp());
-}
-
-class SmartAttendanceApp extends StatelessWidget {
-  const SmartAttendanceApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'cheese!',
-      theme: ThemeData(
-        brightness: Brightness.light,
-        primaryColor: const Color(0xFF1565C0),
-        fontFamily: 'Inter',
-        scaffoldBackgroundColor: Colors.white,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFFF6F6F6),
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 12.0,
-            horizontal: 16.0,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8.0),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-      debugShowCheckedModeBanner: false,
-      home: const SignupPage(),
-    );
-  }
-}
+import 'package:userinterface/login.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -57,9 +22,7 @@ class _SignupPageState extends State<SignupPage> {
     String email,
     String password,
   ) async {
-    final url = Uri.parse(
-      'http://127.0.0.1:5000/signup',
-    ); // change to server IP when on device
+    final url = Uri.parse('http://192.168.1.58:5001/signup');
 
     try {
       final response = await http.post(
@@ -72,15 +35,44 @@ class _SignupPageState extends State<SignupPage> {
         }),
       );
 
-      if (response.statusCode == 201) {
-        // success
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Signup successful!")));
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      // Try parsing JSON safely
+      Map<String, dynamic>? data;
+      try {
+        data = json.decode(response.body);
+      } catch (e) {
+        data = null;
+      }
+
+      if (data != null && data.containsKey('message')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['message']),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error: ${response.body}")));
+        // If response is not valid JSON
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Invalid response from server. Status: ${response.statusCode}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      if (response.statusCode == 201) {
+        // Delay for the SnackBar to show before navigating
+        Future.delayed(const Duration(seconds: 2), () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -131,7 +123,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: 38),
 
-            // Username field
+            // Username
             SizedBox(
               height: 48,
               child: TextField(
@@ -145,7 +137,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: 16),
 
-            // Email field
+            // Email
             SizedBox(
               height: 48,
               child: TextField(
@@ -159,7 +151,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: 16),
 
-            // Password field
+            // Password
             SizedBox(
               height: 48,
               child: TextField(
@@ -174,7 +166,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: 16),
 
-            // Signup button
+            // Sign Up Button
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -185,7 +177,6 @@ class _SignupPageState extends State<SignupPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
-                  overlayColor: Colors.transparent,
                 ),
                 onPressed: _isLoading
                     ? null
@@ -230,7 +221,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: 20),
 
-            // Google button
+            // Google
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -258,8 +249,10 @@ class _SignupPageState extends State<SignupPage> {
                 ),
               ),
             ),
+
             const SizedBox(height: 85),
 
+            // Log in link
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

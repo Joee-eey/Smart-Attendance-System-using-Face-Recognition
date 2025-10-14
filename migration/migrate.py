@@ -2,7 +2,7 @@ import os
 import mysql.connector
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env
 load_dotenv()
 
 DB_HOST = os.environ.get("DB_HOST", "127.0.0.1")
@@ -24,22 +24,9 @@ cursor = db.cursor()
 cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_DATABASE};")
 cursor.execute(f"USE {DB_DATABASE};")
 
-# USERS TABLE – for login system (linked_id link to students.id or lecturers.id)
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL, 
-    role ENUM('student', 'lecturer', 'admin') NOT NULL,
-    linked_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-""")
-
-
+# ----------------------
 # LECTURERS TABLE
+# ----------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS lecturers (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -50,19 +37,24 @@ CREATE TABLE IF NOT EXISTS lecturers (
 );
 """)
 
-# STUDENTS TABLE (with face_token)
+# ----------------------
+# USERS TABLE (login for lecturers only)
+# ----------------------
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS students (
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    student_card_id VARCHAR(50) UNIQUE,
-    face_token VARCHAR(100) UNIQUE,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lecturer_id) REFERENCES lecturers(id)
 );
 """)
 
+# ----------------------
 # SUBJECTS TABLE
+# ----------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS subjects (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -73,12 +65,14 @@ CREATE TABLE IF NOT EXISTS subjects (
 );
 """)
 
+# ----------------------
 # CLASSES TABLE (links lecturer & subject)
+# ----------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS classes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     subject_id INT NOT NULL,
-    lecturer_id INT,
+    lecturer_id INT NOT NULL,
     schedule VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -87,7 +81,25 @@ CREATE TABLE IF NOT EXISTS classes (
 );
 """)
 
+# ----------------------
+# STUDENTS TABLE (with face recognition token)
+# ----------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS students (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    student_card_id VARCHAR(50) UNIQUE,
+    face_token VARCHAR(100) UNIQUE,
+    class_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES classes(id)
+);
+""")
+
+# ----------------------
 # ATTENDANCE TABLE
+# ----------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS attendance (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -102,7 +114,8 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 """)
 
-print("✅ Smart Attendance Database and Tables created successfully!")
 db.commit()
 cursor.close()
 db.close()
+
+print("✅ Smart Attendance Database & Tables (Lecturer-only) created successfully!")
