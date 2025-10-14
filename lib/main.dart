@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'login.dart';
+import 'signup.dart';
 
 void main() {
   runApp(const SmartAttendanceApp());
@@ -30,12 +32,14 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).primaryColor;
 
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -54,34 +58,44 @@ class HomePage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Image.asset('assets/images/cheese_logo.png',
-                  width: 180, height: 180),
+              Image.asset(
+                'assets/images/cheese_logo.png',
+                width: 180,
+                height: 180,
+              ),
               Text(
                 'Effortlessly track attendance with our advanced face recognition technology.',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 15, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
 
-              // 🔹 Log in Button (No effect)
+              // 🔹 Log in Button
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ).copyWith(
-                    overlayColor: WidgetStateProperty.all(Colors.transparent),
-                    splashFactory: NoSplash.splashFactory,
-                  ),
-                  onPressed: () {},
+                  style:
+                      ElevatedButton.styleFrom(
+                        backgroundColor: primary,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ).copyWith(
+                        overlayColor: WidgetStateProperty.all(
+                          Colors.transparent,
+                        ),
+                        splashFactory: NoSplash.splashFactory,
+                      ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginPage(),
+                      ),
+                    );
+                  },
                   child: const Text(
                     'Log in',
                     style: TextStyle(
@@ -95,23 +109,33 @@ class HomePage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // 🔹 Sign Up Button (No effect)
+              // 🔹 Sign Up Button
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.transparent),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    backgroundColor: const Color(0x1A1565C0),
-                    elevation: 0,
-                  ).copyWith(
-                    overlayColor: WidgetStateProperty.all(Colors.transparent),
-                    splashFactory: NoSplash.splashFactory,
-                  ),
-                  onPressed: () {},
+                  style:
+                      OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.transparent),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        backgroundColor: const Color(0x1A1565C0),
+                        elevation: 0,
+                      ).copyWith(
+                        overlayColor: WidgetStateProperty.all(
+                          Colors.transparent,
+                        ),
+                        splashFactory: NoSplash.splashFactory,
+                      ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SignUpPage(),
+                      ),
+                    );
+                  },
                   child: Text(
                     'Sign Up',
                     style: TextStyle(

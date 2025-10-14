@@ -20,8 +20,10 @@ class SmartAttendanceApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFFF6F6F6),
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 16.0,
+            horizontal: 16.0,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8.0),
             borderSide: BorderSide.none,
@@ -41,21 +43,20 @@ class LoginPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).primaryColor;
 
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'cheese!',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
@@ -70,18 +71,12 @@ class LoginPage extends StatelessWidget {
             const SizedBox(height: 5),
             const Text(
               "Welcome",
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 5),
             const Text(
               "Log in to continue",
-              style: TextStyle(
-                fontSize: 15,
-                color: Color(0xB2000000),
-              ),
+              style: TextStyle(fontSize: 15, color: Color(0xB2000000)),
             ),
             const SizedBox(height: 38),
 
@@ -122,10 +117,7 @@ class LoginPage extends StatelessWidget {
                 ),
                 child: Text(
                   "Forgot Password?",
-                  style: TextStyle(
-                    color: primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: primary, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
