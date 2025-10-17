@@ -1,38 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-void main() {
-  runApp(const SmartAttendanceApp());
-}
-
-class SmartAttendanceApp extends StatelessWidget {
-  const SmartAttendanceApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'cheese!',
-      theme: ThemeData(
-        brightness: Brightness.light,
-        primaryColor: const Color(0xFF1565C0),
-        fontFamily: 'Inter',
-        scaffoldBackgroundColor: Colors.white,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFFF6F6F6),
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8.0),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-      debugShowCheckedModeBanner: false,
-      home: const LoginPage(),
-    );
-  }
-}
+import 'package:userinterface/signup.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -41,27 +9,25 @@ class LoginPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).primaryColor;
 
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'cheese!',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
         child: Column(
@@ -70,24 +36,18 @@ class LoginPage extends StatelessWidget {
             const SizedBox(height: 5),
             const Text(
               "Welcome",
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 5),
             const Text(
               "Log in to continue",
-              style: TextStyle(
-                fontSize: 15,
-                color: Color(0xB2000000),
-              ),
+              style: TextStyle(fontSize: 15, color: Color(0xB2000000)),
             ),
             const SizedBox(height: 38),
 
-            SizedBox(
+            const SizedBox(
               height: 48,
-              child: const TextField(
+              child: TextField(
                 style: TextStyle(color: Colors.black, fontSize: 15),
                 decoration: InputDecoration(
                   hintText: 'Email',
@@ -97,9 +57,9 @@ class LoginPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            SizedBox(
+            const SizedBox(
               height: 48,
-              child: const TextField(
+              child: TextField(
                 obscureText: true,
                 style: TextStyle(color: Colors.black, fontSize: 15),
                 decoration: InputDecoration(
@@ -122,10 +82,7 @@ class LoginPage extends StatelessWidget {
                 ),
                 child: Text(
                   "Forgot Password?",
-                  style: TextStyle(
-                    color: primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: primary, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -143,7 +100,9 @@ class LoginPage extends StatelessWidget {
                   elevation: 0,
                   overlayColor: Colors.transparent,
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  // TODO: Add login logic here
+                },
                 child: const Text(
                   "Log in",
                   style: TextStyle(
@@ -158,18 +117,18 @@ class LoginPage extends StatelessWidget {
             const SizedBox(height: 18),
 
             Row(
-              children: [
-                const Expanded(
+              children: const [
+                Expanded(
                   child: Divider(thickness: 1, color: Color(0xFFE0E0E0)),
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12.0),
                   child: Text(
                     "Or continue with",
                     style: TextStyle(color: Colors.grey),
                   ),
                 ),
-                const Expanded(
+                Expanded(
                   child: Divider(thickness: 1, color: Color(0xFFE0E0E0)),
                 ),
               ],
@@ -199,7 +158,6 @@ class LoginPage extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  overlayColor: Colors.transparent,
                 ),
               ),
             ),
@@ -214,7 +172,14 @@ class LoginPage extends StatelessWidget {
                   style: TextStyle(color: Color(0xB2000000)),
                 ),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SignupPage(),
+                      ),
+                    );
+                  },
                   child: Text(
                     "Sign Up",
                     style: TextStyle(
