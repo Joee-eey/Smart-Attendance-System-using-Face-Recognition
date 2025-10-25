@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:userinterface/scanattendance.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+// void main() {
+//   runApp(const MyApp());
+// }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Attendance(),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return const MaterialApp(
+//       debugShowCheckedModeBanner: false,
+//       home: Attendance(),
+//     );
+//   }
+// }
 
 class Attendance extends StatefulWidget {
   const Attendance({super.key});
@@ -122,7 +123,7 @@ class _AttendanceState extends State<Attendance> {
         attendanceList.where((e) => e['status'] == 'Absent').length;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false, 
+      resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
         backgroundColor: const Color(0xFFFFFFFF),
@@ -179,9 +180,7 @@ class _AttendanceState extends State<Attendance> {
               ),
               cursorColor: Colors.black,
             ),
-
             const SizedBox(height: 15),
-
             const Text(
               "Today's Summary",
               style: TextStyle(
@@ -190,7 +189,6 @@ class _AttendanceState extends State<Attendance> {
               ),
             ),
             const SizedBox(height: 10),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -268,9 +266,7 @@ class _AttendanceState extends State<Attendance> {
                 ),
               ],
             ),
-
             const SizedBox(height: 15),
-
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -279,7 +275,6 @@ class _AttendanceState extends State<Attendance> {
               ),
             ),
             const SizedBox(height: 5),
-
             Expanded(
               child: ListView.builder(
                 itemCount: attendanceList.length,
@@ -364,49 +359,55 @@ class _AttendanceState extends State<Attendance> {
           ],
         ),
       ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 70), 
-        child: Container(
-          height: 48,
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1565C0),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF1565C0), width: 2),
-          ),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.qr_code_scanner_rounded,
-                    color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  "Scan for Attendance",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+        padding: const EdgeInsets.only(bottom: 70),
+        child: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ScanAttendance()),
+            );
+          },
+          child: Container(
+            height: 48,
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1565C0),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF1565C0), width: 2),
+            ),
+            child: const Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.qr_code_scanner_rounded,
+                      color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Scan for Attendance",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF1565C0),
         unselectedItemColor: Colors.grey,
-        currentIndex: 0,
-        selectedFontSize: 12, 
+        currentIndex: 1,
+        selectedFontSize: 12,
         unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24), 
+        selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
         items: const [
           BottomNavigationBarItem(

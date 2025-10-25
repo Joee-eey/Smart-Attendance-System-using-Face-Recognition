@@ -1,21 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: ScanAttendance(),
-    );
-  }
-}
+import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class ScanAttendance extends StatefulWidget {
   const ScanAttendance({super.key});
@@ -25,6 +11,39 @@ class ScanAttendance extends StatefulWidget {
 }
 
 class _ScanAttendanceState extends State<ScanAttendance> {
+  CameraController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    final status = await Permission.camera.request();
+    if (!status.isGranted) return;
+
+    final cameras = await availableCameras();
+    final frontCamera = cameras.firstWhere(
+      (camera) => camera.lensDirection == CameraLensDirection.front,
+    );
+
+    _controller = CameraController(frontCamera, ResolutionPreset.medium);
+
+    try {
+      await _controller!.initialize();
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error initializing camera: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -41,8 +60,7 @@ class _ScanAttendanceState extends State<ScanAttendance> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded,
-              color: Colors.black),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.black),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -56,7 +74,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
           ),
         ),
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
@@ -81,23 +98,40 @@ class _ScanAttendanceState extends State<ScanAttendance> {
                       width: 280,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0x66FFFFFF), 
+                        color: const Color(0x66FFFFFF),
                         border: Border.all(
-                          color: Colors.white, 
-                          width: 3, 
+                          color: Colors.white,
+                          width: 3,
                         ),
                       ),
                     ),
+
+                    // 👇 REPLACED STATIC ICON WITH LIVE CAMERA FEED
                     ClipOval(
-                      child: Container(
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.camera_alt_outlined,
-                        color: Colors.white, 
-                        size: 55, 
-                        ),
-                      ),
+                      child: _controller != null &&
+                              _controller!.value.isInitialized
+                          ? SizedBox(
+                              width: 280,
+                              height: 280,
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: _controller!.value.previewSize!.height,
+                                  height: _controller!.value.previewSize!.width,
+                                  child: CameraPreview(_controller!),
+                                ),
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(
+                                Icons.camera_alt_outlined,
+                                color: Colors.white,
+                                size: 55,
+                              ),
+                            ),
                     ),
+
+                    // Secure & Private Label
                     Positioned(
                       bottom: 50,
                       child: Container(
@@ -149,29 +183,28 @@ class _ScanAttendanceState extends State<ScanAttendance> {
             ),
             const SizedBox(height: 5),
             Positioned(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 13, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0x1A1565C0),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // place to put loading animation
-                            Text(
-                              "Scanning...",
-                              style: TextStyle(
-                                color: Color(0xFF1565C0),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0x1A1565C0),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Scanning...",
+                      style: TextStyle(
+                        color: Color(0xFF1565C0),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -230,16 +263,15 @@ class _ScanAttendanceState extends State<ScanAttendance> {
           ],
         ),
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: Colors.grey,
         unselectedItemColor: Colors.grey,
         currentIndex: 1,
-        selectedFontSize: 12, 
+        selectedFontSize: 12,
         unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24), 
+        selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
         items: const [
           BottomNavigationBarItem(

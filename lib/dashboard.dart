@@ -1,26 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
-
-void main() {
-  runApp(const CheeseApp());
-}
-
-class CheeseApp extends StatelessWidget {
-  const CheeseApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'cheese!',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Inter',
-        scaffoldBackgroundColor: const Color(0xFFFFFFFF),
-      ),
-      home: const DashboardPage(),
-    );
-  }
-}
+import 'package:flutter/services.dart';
+import 'package:userinterface/attendance.dart';
 
 class Folder {
   String name;
@@ -51,7 +31,7 @@ class _DashboardPageState extends State<DashboardPage> {
       context: context,
       builder: (context) {
         return Dialog(
-          backgroundColor: Colors.white, 
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           insetPadding: const EdgeInsets.all(24),
           child: Padding(
@@ -86,8 +66,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         color: const Color(0xFFF7F8FA),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.image,
-                          size: 40, color: Colors.grey),
+                      child:
+                          const Icon(Icons.image, size: 40, color: Colors.grey),
                     ),
                     const SizedBox(width: 12),
                     Column(
@@ -117,14 +97,16 @@ class _DashboardPageState extends State<DashboardPage> {
                     controller: nameController,
                     decoration: InputDecoration(
                       hintText: "Folder Name",
-                      hintStyle: const TextStyle(color: Colors.grey,  fontSize: 14),
+                      hintStyle:
+                          const TextStyle(color: Colors.grey, fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFFF7F8FA),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12),
                     ),
                   ),
                 ),
@@ -147,8 +129,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           folder.name = nameController.text;
                           folder.date = DateTime.now();
                         } else {
-                          folders.add(
-                              Folder(nameController.text, DateTime.now()));
+                          folders
+                              .add(Folder(nameController.text, DateTime.now()));
                         }
                       });
                       Navigator.pop(context);
@@ -173,9 +155,8 @@ class _DashboardPageState extends State<DashboardPage> {
       context: context,
       builder: (context) {
         return Dialog(
-          backgroundColor: Colors.white, 
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           insetPadding: const EdgeInsets.all(24),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -202,14 +183,16 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                            backgroundColor: Color(0xFFF6F6F6),
-                            side: const BorderSide(color: Color(0xFFF6F6F6)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                         ),
+                          backgroundColor: Color(0xFFF6F6F6),
+                          side: const BorderSide(color: Color(0xFFF6F6F6)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                         child: const Text("Cancel",
-                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
+                            style: TextStyle(
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w600)),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -224,7 +207,9 @@ class _DashboardPageState extends State<DashboardPage> {
                           Navigator.pop(context);
                         },
                         child: const Text("Delete",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600)),
                       ),
                     )
                   ],
@@ -240,10 +225,10 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.white, 
-      systemNavigationBarIconBrightness: Brightness.dark, 
-      statusBarColor: Colors.white, 
-      statusBarIconBrightness: Brightness.dark, 
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      statusBarColor: Colors.white,
+      statusBarIconBrightness: Brightness.dark,
     ));
 
     return Scaffold(
@@ -262,9 +247,9 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Column(
           children: [
             TextField(
-               style: const TextStyle(
+              style: const TextStyle(
                 color: Color(0xFFF6F6F6),
-               ),
+              ),
               decoration: InputDecoration(
                 hintText: "Search",
                 hintStyle: const TextStyle(
@@ -317,7 +302,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             borderRadius: BorderRadius.circular(100),
                             onTap: () => _showFolderDialog(),
                             child: const SizedBox(
-                              width: 30, 
+                              width: 30,
                               height: 30,
                               child: Icon(Icons.add,
                                   color: Colors.white, size: 22),
@@ -387,8 +372,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           Expanded(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   folder.name,
@@ -423,9 +407,9 @@ class _DashboardPageState extends State<DashboardPage> {
         selectedItemColor: const Color(0xFF1565C0),
         unselectedItemColor: Colors.grey,
         currentIndex: 0,
-        selectedFontSize: 12, 
+        selectedFontSize: 12,
         unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24), 
+        selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
         items: const [
           BottomNavigationBarItem(
@@ -437,6 +421,14 @@ class _DashboardPageState extends State<DashboardPage> {
           BottomNavigationBarItem(
               icon: Icon(Icons.settings_rounded), label: 'Settings'),
         ],
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const Attendance()),
+            );
+          }
+        },
       ),
     );
   }

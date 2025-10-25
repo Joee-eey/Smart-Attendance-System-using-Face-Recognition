@@ -1,15 +1,12 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Blueprint, request, jsonify
 import mysql.connector
 from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
 
-load_dotenv() 
-
-app = Flask(__name__)
-CORS(app)
-bcrypt = Bcrypt(app) # Initialize Bcrypt for password hashing
+signup_bp = Blueprint('signup', __name__)
+load_dotenv()
+bcrypt = Bcrypt()
 
 db_config = {
     'host': os.getenv('DB_HOST'),
@@ -28,7 +25,7 @@ def get_db_connection():
         database=db_config['database']
     )
 
-@app.route('/signup', methods=['POST'])
+@signup_bp.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
 
@@ -37,7 +34,7 @@ def signup():
 
     username = data.get('username')
     email = data.get('email')
-    password = data.get('password') 
+    password = data.get('password')
 
     if not all([username, email, password]):
         return jsonify({'message': 'Missing username, email, or password'}), 400
@@ -73,6 +70,3 @@ def signup():
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)

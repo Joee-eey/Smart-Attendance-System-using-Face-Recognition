@@ -1,9 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:userinterface/signup.dart';
+import 'package:userinterface/dashboard.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> loginUser(
+      BuildContext context, String email, String password) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final url = Uri.parse('http://192.168.1.58:5001/login');
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      Map<String, dynamic>? data;
+      try {
+        data = json.decode(response.body);
+      } catch (_) {
+        data = null;
+      }
+
+      final message = data?['message'] ?? 'Unexpected server response';
+
+      // Use captured scaffoldMessenger safely after async gap
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
+
+      if (response.statusCode == 200) {
+        Future.delayed(const Duration(seconds: 2), () {
+          navigator.pushReplacement(
+            MaterialPageRoute(builder: (_) => const DashboardPage()),
+          );
+        });
+      }
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text("Connection error: $e")),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,11 +105,13 @@ class LoginPage extends StatelessWidget {
             ),
             const SizedBox(height: 38),
 
-            const SizedBox(
+            // Email
+            SizedBox(
               height: 48,
               child: TextField(
-                style: TextStyle(color: Colors.black, fontSize: 15),
-                decoration: InputDecoration(
+                controller: _emailController,
+                style: const TextStyle(color: Colors.black, fontSize: 15),
+                decoration: const InputDecoration(
                   hintText: 'Email',
                   hintStyle: TextStyle(color: Colors.grey),
                 ),
@@ -57,12 +119,14 @@ class LoginPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            const SizedBox(
+            // Password
+            SizedBox(
               height: 48,
               child: TextField(
+                controller: _passwordController,
                 obscureText: true,
-                style: TextStyle(color: Colors.black, fontSize: 15),
-                decoration: InputDecoration(
+                style: const TextStyle(color: Colors.black, fontSize: 15),
+                decoration: const InputDecoration(
                   hintText: 'Password',
                   hintStyle: TextStyle(color: Colors.grey),
                 ),
@@ -88,6 +152,7 @@ class LoginPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
+            // Login button
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -100,17 +165,23 @@ class LoginPage extends StatelessWidget {
                   elevation: 0,
                   overlayColor: Colors.transparent,
                 ),
-                onPressed: () {
-                  // TODO: Add login logic here
-                },
-                child: const Text(
-                  "Log in",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        setState(() => _isLoading = true);
+                        loginUser(context, _emailController.text,
+                            _passwordController.text);
+                      },
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        "Log in",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
 
@@ -135,6 +206,7 @@ class LoginPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
+            // Google Button
             SizedBox(
               width: double.infinity,
               height: 48,
