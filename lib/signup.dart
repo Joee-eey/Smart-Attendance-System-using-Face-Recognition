@@ -98,10 +98,6 @@ class _SignupPageState extends State<SignupPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'cheese!',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,

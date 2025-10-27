@@ -2,263 +2,174 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const Enrollment2());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Enrollment2 extends StatelessWidget {
+  const Enrollment2({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Enrollment(),
+      home: EnrollmentPage(),
     );
   }
 }
 
-class Enrollment extends StatefulWidget {
-  const Enrollment({super.key});
+class EnrollmentPage extends StatefulWidget {
+  const EnrollmentPage({super.key});
 
   @override
-  State<Enrollment> createState() => _EnrollmentState();
+  State<EnrollmentPage> createState() => _EnrollmentPageState();
 }
 
-class _EnrollmentState extends State<Enrollment> {
+class _EnrollmentPageState extends State<EnrollmentPage> {
+  String? selectedClass;
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       systemNavigationBarColor: Colors.white,
       systemNavigationBarIconBrightness: Brightness.dark,
-      statusBarColor: Colors.white,
+      statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
     ));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFFFFFF),
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded,
-              color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text(
-          'Enrollment',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-            fontSize: 20,
-          ),
-        ),
-      ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () {},
+              ),
+              const SizedBox(height: 0),
 
-      body: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              children: [
-                const SizedBox(height: 5),
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      height: 300,
-                      width: 300,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFFCEE8F0),
-                      ),
-                    ),
-                    Container(
-                      height: 280,
-                      width: 280,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0x66FFFFFF), 
-                        border: Border.all(
-                          color: Colors.white, 
-                          width: 3, 
-                        ),
-                      ),
-                    ),
-                    ClipOval(
-                      child: Container(
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.camera_alt_outlined,
-                        color: Colors.white, 
-                        size: 55, 
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 50,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB5DCE9),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.lock_rounded,
-                                size: 17, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text(
-                              "Secure & Private",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              Center(
+                child: CircleAvatar(
+                  radius: 120,
+                  backgroundColor: const Color(0xFF1565C0),
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Position your face in the frame",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+              ),
+              const SizedBox(height: 20),
+
+              SizedBox(height: 50, child: _buildTextField("Enter student name")),
+              const SizedBox(height: 10),
+              SizedBox(height: 50, child: _buildTextField("Enter student ID")),
+              const SizedBox(height: 10),
+              SizedBox(height: 50, child: _buildTextField("Enter student course")),
+              const SizedBox(height: 10),
+
+              SizedBox(
+                height: 50,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F6F6),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  "Ensure your face is well-lit and you're\nkeeping a neutral expression.",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Positioned(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 13, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0x1A1565C0),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // place to put loading animation
-                            Text(
-                              "Scanning...",
-                              style: TextStyle(
-                                color: Color(0xFF1565C0),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      hint: const Text(
+                        "Select group(s)..",
+                        style: TextStyle(color: Colors.grey),
                       ),
-                    ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      "Step 2 of 4",
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      "33%",
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1565C0)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: 0.33,
-                    backgroundColor: const Color(0x331565C0),
-                    valueColor: const AlwaysStoppedAnimation(Color(0xFF1565C0)),
-                    minHeight: 6,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0x511565C0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.camera_rounded,
-                            color: Colors.white, size: 20),
-                        SizedBox(width: 5),
-                        Text(
-                          "Take Photo",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
+                      value: selectedClass,
+                      items: const [
+                        DropdownMenuItem(value: "Class 1", child: Text("Class 1")),
+                        DropdownMenuItem(value: "Class 2", child: Text("Class 2")),
+                        DropdownMenuItem(value: "Class 3", child: Text("Class 3")),
                       ],
+                      onChanged: (value) {
+                        setState(() => selectedClass = value);
+                      },
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Colors.grey,
+                      ),
+                      isExpanded: true,
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 15),
+
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () {},
+                  child: const Text(
+                    "Enroll",
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
 
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
+        elevation: 0,
         selectedItemColor: const Color(0xFF1565C0),
         unselectedItemColor: Colors.grey,
         currentIndex: 1,
-        selectedFontSize: 12, 
-        unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24), 
-        unselectedIconTheme: const IconThemeData(size: 24),
+        onTap: (index) {},
         items: const [
           BottomNavigationBarItem(
-              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
+            icon: Icon(Icons.dashboard_outlined),
+            label: "Dashboard",
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.qr_code_scanner_rounded), label: 'Scan'),
+            icon: Icon(Icons.qr_code_scanner_outlined),
+            label: "Scan",
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
+            icon: Icon(Icons.bar_chart_outlined),
+            label: "Reports",
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded), label: 'Settings'),
+            icon: Icon(Icons.settings_outlined),
+            label: "Settings",
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(String hint) {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.grey),
+        filled: true,
+        fillColor: const Color(0xFFF5F5F5),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
       ),
     );
   }

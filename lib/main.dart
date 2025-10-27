@@ -43,10 +43,6 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'cheese!',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.black,
