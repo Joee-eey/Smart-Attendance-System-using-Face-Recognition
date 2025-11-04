@@ -22,7 +22,7 @@ class _SignupPageState extends State<SignupPage> {
     String email,
     String password,
   ) async {
-    final url = Uri.parse('http://192.168.1.58:5001/signup');
+    final url = Uri.parse('http://192.168.100.22:5001/signup');
 
     try {
       final response = await http.post(
@@ -38,7 +38,6 @@ class _SignupPageState extends State<SignupPage> {
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
 
-      // Try parsing JSON safely
       Map<String, dynamic>? data;
       try {
         data = json.decode(response.body);
@@ -46,38 +45,50 @@ class _SignupPageState extends State<SignupPage> {
         data = null;
       }
 
-      if (data != null && data.containsKey('message')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message']),
-            duration: const Duration(seconds: 2),
-          ),
+      // Success dialog
+      if (response.statusCode == 201) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF00B38A),
+          title: "Sign Up Successful!",
+          message: "Your account has been created successfully.",
+          buttonText: "Continue to Login",
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+            );
+          },
         );
-      } else {
-        // If response is not valid JSON
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Invalid response from server. Status: ${response.statusCode}',
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        return;
       }
 
-      if (response.statusCode == 201) {
-        // Delay for the SnackBar to show before navigating
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginPage()),
-          );
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
+      // Error dialog
+      _showAnimatedDialog(
         context,
-      ).showSnackBar(SnackBar(content: Text("Connection error: $e")));
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
+        title: "Sign Up Failed",
+        message: data != null && data.containsKey('message')
+            ? data['message']
+            : "Please try again later.",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+    } catch (e) {
+      // Connection error dialog
+      _showAnimatedDialog(
+        context,
+        icon: Icons.wifi_off_rounded,
+        iconColor: const Color(0xFF1565C0),
+        title: "Connection Error",
+        message:
+            "Unable to reach the server.\nPlease check your internet connection.",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
@@ -98,6 +109,7 @@ class _SignupPageState extends State<SignupPage> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -162,7 +174,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: 16),
 
-            // Sign Up Button
+            // Sign up button
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -278,6 +290,95 @@ class _SignupPageState extends State<SignupPage> {
           ],
         ),
       ),
+    );
+  }
+
+  // 🔹 Animated Popup Helper Function
+  void _showAnimatedDialog(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) {
+        return const SizedBox();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final scale = Tween<double>(begin: 0.8, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+        );
+        final opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeIn),
+        );
+
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: opacity.value,
+              child: Transform.scale(
+                scale: scale.value,
+                child: AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  contentPadding: const EdgeInsets.all(24),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, color: iconColor, size: 70),
+                      const SizedBox(height: 20),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: iconColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(double.infinity, 45),
+                        ),
+                        onPressed: onPressed,
+                        child: Text(
+                          buttonText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

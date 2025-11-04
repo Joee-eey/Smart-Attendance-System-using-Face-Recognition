@@ -135,17 +135,9 @@ class _AttendanceState extends State<Attendance> {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
-          'Attendance',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-            fontSize: 20,
-          ),
-        ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -162,11 +154,12 @@ class _AttendanceState extends State<Attendance> {
                 suffixIcon: const Icon(Icons.search, color: Color(0x4D000000)),
                 contentPadding:
                     const EdgeInsets.only(left: 10, top: 12, bottom: 12),
-                filled: false,
+                filled: true,
+                fillColor: const Color(0xFFF6F6F6),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
-                    color: Color(0xFFF6F6F6),
+                    color: Color(0x1A000000),
                     width: 1,
                   ),
                 ),
@@ -343,8 +336,8 @@ class _AttendanceState extends State<Attendance> {
                             record['status'],
                             style: TextStyle(
                               color: record['status'] == 'Present'
-                                  ? Colors.green
-                                  : Colors.red,
+                                  ? const Color(0xFF00B38A)
+                                  : const Color(0xFFEA324C),
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -382,11 +375,11 @@ class _AttendanceState extends State<Attendance> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.qr_code_scanner_rounded,
+                  Icon(Icons.camera_alt_rounded,
                       color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    "Scan for Attendance",
+                    "Take Attendance",
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -402,7 +395,7 @@ class _AttendanceState extends State<Attendance> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF1565C0),
+        selectedItemColor: Colors.grey,
         unselectedItemColor: Colors.grey,
         currentIndex: 1,
         selectedFontSize: 12,
@@ -413,7 +406,7 @@ class _AttendanceState extends State<Attendance> {
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.qr_code_scanner_rounded), label: 'Scan'),
+              icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
           BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
           BottomNavigationBarItem(

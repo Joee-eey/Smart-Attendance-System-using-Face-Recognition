@@ -230,11 +230,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 8, horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFBC04A).withOpacity(0.95),
+                          color: const Color(0xFFFBC04A).withValues(alpha: .95),
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: .25),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),

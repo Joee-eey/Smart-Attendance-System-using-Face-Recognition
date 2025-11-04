@@ -115,7 +115,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     style: TextStyle(
                       fontSize: 18,
                       color: Colors.white,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),

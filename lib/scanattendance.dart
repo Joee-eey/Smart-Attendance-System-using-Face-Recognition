@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
 
 class ScanAttendance extends StatefulWidget {
   const ScanAttendance({super.key});
@@ -11,37 +10,85 @@ class ScanAttendance extends StatefulWidget {
 }
 
 class _ScanAttendanceState extends State<ScanAttendance> {
+  bool showSettings = false;
+  bool showGrid = false;
+  bool soundOn = false;
+  bool flashOn = false;
+  bool _isCameraReady = false;
+
+  int currentCameraIndex = 0;
   CameraController? _controller;
+  List<CameraDescription>? cameras;
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    _initializeCameraList();
   }
 
-  Future<void> _initializeCamera() async {
-    final status = await Permission.camera.request();
-    if (!status.isGranted) return;
-
-    final cameras = await availableCameras();
-    final frontCamera = cameras.firstWhere(
-      (camera) => camera.lensDirection == CameraLensDirection.front,
-    );
-
-    _controller = CameraController(frontCamera, ResolutionPreset.medium);
-
-    try {
-      await _controller!.initialize();
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Error initializing camera: $e');
+  Future<void> _initializeCameraList() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+    cameras = await availableCameras();
+    if (cameras != null && cameras!.isNotEmpty) {
+      await _initializeCamera(cameras![currentCameraIndex]);
     }
   }
 
-  @override
-  void dispose() {
+  Future<void> _initializeCamera(CameraDescription camera) async {
     _controller?.dispose();
-    super.dispose();
+    _controller = CameraController(
+      camera,
+      ResolutionPreset.medium,
+      enableAudio: false,
+    );
+
+    try {
+      await _controller!.initialize();
+      await _controller!.setFlashMode(
+        flashOn ? FlashMode.torch : FlashMode.off,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isCameraReady = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Camera error: $e");
+    }
+  }
+
+  void _toggleFlash() async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+
+    setState(() => flashOn = !flashOn);
+    await _controller!.setFlashMode(
+      flashOn ? FlashMode.torch : FlashMode.off,
+    );
+  }
+
+  void _switchCamera() async {
+    if (cameras == null || cameras!.length < 2) return;
+
+    final currentLensDirection = cameras![currentCameraIndex].lensDirection;
+
+    final newIndex = cameras!.indexWhere((camera) =>
+        camera.lensDirection ==
+        (currentLensDirection == CameraLensDirection.front
+            ? CameraLensDirection.back
+            : CameraLensDirection.front));
+
+    if (newIndex == -1) return;
+
+    setState(() {
+      currentCameraIndex = newIndex;
+      _isCameraReady = false;
+    });
+
+    await _initializeCamera(cameras![currentCameraIndex]);
   }
 
   @override
@@ -49,241 +96,278 @@ class _ScanAttendanceState extends State<ScanAttendance> {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       systemNavigationBarColor: Colors.white,
       systemNavigationBarIconBrightness: Brightness.dark,
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
     ));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFFFFFF),
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text(
-          'Attendance',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-            fontSize: 20,
+      backgroundColor: Colors.white,
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: Colors.white, width: 1),
           ),
         ),
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          selectedItemColor: Colors.grey,
+          unselectedItemColor: Colors.grey,
+          currentIndex: 1,
+          selectedFontSize: 12, 
+          unselectedFontSize: 12,
+          selectedIconTheme: const IconThemeData(size: 24), 
+          unselectedIconTheme: const IconThemeData(size: 24),
+          onTap: (index) {},
+          items: const [
+            BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard), label: 'Dashboard'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.bar_chart), label: 'Reports'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.settings), label: 'Settings'),
+          ],
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              children: [
-                const SizedBox(height: 5),
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      height: 300,
-                      width: 300,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFFCEE8F0),
-                      ),
-                    ),
-                    Container(
-                      height: 280,
-                      width: 280,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0x66FFFFFF),
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 3,
+
+      body: Column(
+        children: [
+          Container(
+            color: const Color(0xFF1565C0),
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 10),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () {Navigator.pop(context);},
+                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 28),),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleFlash,
+                        child: Icon(
+                          flashOn ? Icons.flash_on : Icons.flash_off,
+                          color: flashOn ? Colors.yellow : Colors.white,
+                          size: 26,
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            showSettings = !showSettings;
+                          });
+                        },
+                        child: const Icon(Icons.more_vert,
+                            color: Colors.white, size: 26),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (showSettings) setState(() => showSettings = false);
+              },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_isCameraReady && _controller != null)
+                    ClipRect(
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: _controller!.value.previewSize!.height,
+                          height: _controller!.value.previewSize!.width,
+                          child: CameraPreview(_controller!),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(color: Colors.grey[200]),
+
+                  if (showGrid)
+                    IgnorePointer(
+                      child: CustomPaint(
+                        size: Size.infinite,
+                        painter: GridPainter(),
+                      ),
                     ),
 
-                    // 👇 REPLACED STATIC ICON WITH LIVE CAMERA FEED
-                    ClipOval(
-                      child: _controller != null &&
-                              _controller!.value.isInitialized
-                          ? SizedBox(
-                              width: 280,
-                              height: 280,
-                              child: FittedBox(
-                                fit: BoxFit.cover,
-                                child: SizedBox(
-                                  width: _controller!.value.previewSize!.height,
-                                  height: _controller!.value.previewSize!.width,
-                                  child: CameraPreview(_controller!),
-                                ),
-                              ),
-                            )
-                          : const Center(
-                              child: Icon(
-                                Icons.camera_alt_outlined,
-                                color: Colors.white,
-                                size: 55,
-                              ),
-                            ),
-                    ),
-
-                    // Secure & Private Label
+                  if (showSettings)
                     Positioned(
-                      bottom: 50,
+                      top: 0,
+                      right: 12,
                       child: Container(
+                        width: 200,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                            vertical: 8, horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFB5DCE9),
-                          borderRadius: BorderRadius.circular(30),
+                          color: const Color(0xFFFBC04A).withValues(alpha: .95),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: .25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.lock_rounded,
-                                size: 17, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text(
-                              "Secure & Private",
+                            const Text(
+                              "Settings",
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 18,
                               ),
                             ),
+                            const SizedBox(height: 6),
+                            Container(
+                              height: 1,
+                              color: Colors.white,
+                              margin: const EdgeInsets.only(bottom: 5),
+                            ),
+                            const SizedBox(height: 5),
+                            _buildCustomSwitch("Grid", showGrid, (v) {
+                              setState(() => showGrid = v);
+                            }),
+                            _buildCustomSwitch("Sound", soundOn, (v) {
+                              setState(() => soundOn = v);
+                            }),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Position your face in the frame",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  "Ensure your face is well-lit and you're\nkeeping a neutral expression.",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Positioned(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0x1A1565C0),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "Scanning...",
-                      style: TextStyle(
-                        color: Color(0xFF1565C0),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          ),
+
+          Container(
+            color: const Color(0xFF1565C0),
+            height: 120,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      "Step 1 of 2",
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      "33%",
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1565C0)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: 0.33,
-                    backgroundColor: const Color(0x331565C0),
-                    valueColor: const AlwaysStoppedAnimation(Color(0xFF1565C0)),
-                    minHeight: 6,
+                Positioned(
+                  bottom: 30,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                        ),
+                      ),
+                      Container(
+                        width: 55,
+                        height: 55,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: () {},
-                    label: const Text(
-                      "Record Attendance",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0x511565C0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
+                Positioned(
+                  right: 40,
+                  bottom: 35,
+                  child: GestureDetector(
+                    onTap: _switchCamera,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const Icon(Icons.cameraswitch_rounded,
+                            color: Colors.white, size: 30),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.grey,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 1,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24),
-        unselectedIconTheme: const IconThemeData(size: 24),
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.qr_code_scanner_rounded), label: 'Scan'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded), label: 'Settings'),
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildCustomSwitch(String title, bool value, Function(bool) onChanged) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(color: Colors.white, fontSize: 18)),
+        GestureDetector(
+          onTap: () => onChanged(!value),
+          child: Container(
+            width: 32,
+            height: 16,
+            decoration: BoxDecoration(
+              color: value ? const Color(0xFF1565C0) : Colors.grey,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 150),
+              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                width: 12,
+                height: 12,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.6)
+      ..strokeWidth = 1;
+
+    double stepX = size.width / 3;
+    double stepY = size.height / 3;
+
+    for (int i = 1; i < 3; i++) {
+      canvas.drawLine(
+          Offset(stepX * i, 0), Offset(stepX * i, size.height), linePaint);
+      canvas.drawLine(
+          Offset(0, stepY * i), Offset(size.width, stepY * i), linePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

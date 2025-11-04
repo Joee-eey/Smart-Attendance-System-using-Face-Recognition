@@ -21,7 +21,21 @@ class _LoginPageState extends State<LoginPage> {
       BuildContext context, String email, String password) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final url = Uri.parse('http://192.168.1.58:5001/login');
+    final url = Uri.parse('http://192.168.100.22:5001/login');
+
+    // Missing email or password dialog
+    if (email.isEmpty || password.isEmpty) {
+      _showAnimatedDialog(
+        context,
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
+        title: "Missing Information",
+        message: "Please enter both email and password to continue.",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -44,17 +58,64 @@ class _LoginPageState extends State<LoginPage> {
 
       final message = data?['message'] ?? 'Unexpected server response';
 
-      // Use captured scaffoldMessenger safely after async gap
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
-      );
+      // Incorrect password or email not registered dialog
+      if (response.statusCode == 401 && message.contains("Incorrect password")) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.lock_rounded,
+          iconColor:  const Color(0xFF1565C0),
+          title: "Incorrect Password",
+          message: "The password you entered is incorrect. Please try again.",
+          buttonText: "Retry",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      } else if (response.statusCode == 404 &&
+          message.contains("Email not registered")) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.person_off_rounded,
+          iconColor: const Color(0xFF1565C0),
+          title: "Email Not Registered",
+          message:
+              "The email address you entered is not registered.\nPlease sign up for a new account.",
+          buttonText: "Sign Up",
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const SignupPage()),
+            );
+          },
+        );
+      }
 
-      if (response.statusCode == 200) {
-        Future.delayed(const Duration(seconds: 2), () {
-          navigator.pushReplacement(
-            MaterialPageRoute(builder: (_) => const DashboardPage()),
-          );
-        });
+      // Successful login dialog
+      else if (response.statusCode == 200) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF00B38A),
+          title: "Login Successful",
+          message: "Welcome back! You have logged in successfully.",
+          buttonText: "Continue",
+          onPressed: () {
+            Navigator.of(context).pop();
+            navigator.pushReplacement(
+              MaterialPageRoute(builder: (_) => const DashboardPage()),
+            );
+          },
+        );
+      } else {
+        // Default case dialog
+        _showAnimatedDialog(
+          context,
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
+          title: "Login Failed",
+          message: message,
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
       }
     } catch (e) {
       scaffoldMessenger.showSnackBar(
@@ -80,6 +141,7 @@ class _LoginPageState extends State<LoginPage> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -261,6 +323,95 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       ),
+    );
+  }
+
+  // 🔹 Animated Popup Helper Function
+  void _showAnimatedDialog(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) {
+        return const SizedBox();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final scale = Tween<double>(begin: 0.8, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+        );
+        final opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeIn),
+        );
+
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: opacity.value,
+              child: Transform.scale(
+                scale: scale.value,
+                child: AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  contentPadding: const EdgeInsets.all(24),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, color: iconColor, size: 70),
+                      const SizedBox(height: 20),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: iconColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(double.infinity, 45),
+                        ),
+                        onPressed: onPressed,
+                        child: Text(
+                          buttonText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
