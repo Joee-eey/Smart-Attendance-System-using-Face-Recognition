@@ -1,31 +1,189 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-void main() {
-  runApp(const Enrollment2());
-}
-
-class Enrollment2 extends StatelessWidget {
-  const Enrollment2({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: EnrollmentPage(),
-    );
-  }
-}
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:developer';
 
 class EnrollmentPage extends StatefulWidget {
-  const EnrollmentPage({super.key});
+  final String imagePath;
+
+  const EnrollmentPage({super.key, required this.imagePath});
 
   @override
   State<EnrollmentPage> createState() => _EnrollmentPageState();
 }
 
 class _EnrollmentPageState extends State<EnrollmentPage> {
-  String? selectedClass;
+  String? selectedSubjectId;
+  List<Map<String, dynamic>> subjects = [];
+
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController idController = TextEditingController();
+  final TextEditingController courseController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    fetchSubjects();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    idController.dispose();
+    courseController.dispose();
+    super.dispose();
+  }
+
+  // ---------- FETCH SUBJECTS FROM BACKEND ----------
+  Future<void> fetchSubjects() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      var uri = Uri.parse('$baseUrl/subjects');
+      var response = await http.get(uri);
+
+      log("Subjects API Response (${response.statusCode}): ${response.body}");
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          subjects = data.cast<Map<String, dynamic>>();
+        });
+      } else {
+        log("Failed to fetch subjects: ${response.statusCode}");
+      }
+    } catch (e, stackTrace) {
+      // log full error details
+      log("Error fetching subjects", error: e, stackTrace: stackTrace);
+    }
+  }
+
+  // ----------- ENROLL STUDENT FUNCTION -------------
+  Future<void> enrollStudent() async {
+    try {
+      if (selectedSubjectId == null) return;
+
+      _showLoadingDialog(context); // show loading
+
+      final baseUrl = dotenv.env['BASE_URL']!;
+      var uri = Uri.parse('$baseUrl/enroll');
+      var request = http.MultipartRequest("POST", uri);
+      request.fields["name"] = nameController.text;
+      request.fields["student_card_id"] = idController.text;
+      request.fields["course"] = courseController.text;
+      request.fields["subject_id"] = selectedSubjectId!;
+      request.files.add(await http.MultipartFile.fromPath(
+        "image",
+        widget.imagePath,
+        filename: path.basename(widget.imagePath),
+      ));
+
+      var response = await request.send();
+      var responseBody = await http.Response.fromStream(response);
+
+      if (mounted) {
+        _hideLoadingDialog(context);
+      } // hide loading
+
+      if (responseBody.statusCode == 201 || responseBody.statusCode == 200) {
+        if (mounted) {
+          _showAnimatedDialog(
+            context: context,
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: const Color(0xFF00B38A),
+            title: "Enrollment Successful",
+            message: "Student has been enrolled successfully.",
+            buttonText: "Continue",
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+          );
+        }
+      } else {
+        // show error
+        if (mounted) {
+          _showAnimatedDialog(
+            context: context,
+            icon: Icons.error_outline_rounded,
+            iconColor: Colors.red,
+            title: "Enrollment Failed",
+            message: "Error: ${responseBody.body}",
+            buttonText: "Close",
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      if (mounted) {
+        _hideLoadingDialog(context);
+      } // hide loading if error
+      log("Error enrolling student", error: e, stackTrace: stackTrace);
+    }
+  }
+
+  void _showAnimatedDialog({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 60, color: iconColor),
+            const SizedBox(height: 16),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: iconColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8))),
+                onPressed: onPressed,
+                child: Text(buttonText),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLoadingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // prevent dismiss
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+
+  void _hideLoadingDialog(BuildContext context) {
+    Navigator.of(context).pop(); // close the dialog
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,25 +204,44 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () {},
+                onPressed: () => Navigator.pop(context),
               ),
               const SizedBox(height: 0),
 
+              // Profile Image Preview
               Center(
                 child: CircleAvatar(
                   radius: 120,
                   backgroundColor: const Color(0xFF1565C0),
+                  backgroundImage: File(widget.imagePath).existsSync()
+                      ? FileImage(File(widget.imagePath))
+                      : null,
+                  child: !File(widget.imagePath).existsSync()
+                      ? const Icon(Icons.person, color: Colors.white, size: 100)
+                      : null,
                 ),
               ),
               const SizedBox(height: 20),
 
-              SizedBox(height: 50, child: _buildTextField("Enter student name")),
+              // Student Details
+              SizedBox(
+                height: 50,
+                child: _buildTextField("Enter student name", nameController),
+              ),
               const SizedBox(height: 10),
-              SizedBox(height: 50, child: _buildTextField("Enter student ID")),
+              SizedBox(
+                height: 50,
+                child: _buildTextField("Enter student ID", idController),
+              ),
               const SizedBox(height: 10),
-              SizedBox(height: 50, child: _buildTextField("Enter student course")),
+              SizedBox(
+                height: 50,
+                child:
+                    _buildTextField("Enter student course", courseController),
+              ),
               const SizedBox(height: 10),
 
+              // Dropdown (Subjects)
               SizedBox(
                 height: 50,
                 child: Container(
@@ -75,23 +252,20 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      hint: const Text(
-                        "Select group(s)..",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      value: selectedClass,
-                      items: const [
-                        DropdownMenuItem(value: "Class 1", child: Text("Class 1")),
-                        DropdownMenuItem(value: "Class 2", child: Text("Class 2")),
-                        DropdownMenuItem(value: "Class 3", child: Text("Class 3")),
-                      ],
+                      hint: const Text("Select subject..",
+                          style: TextStyle(color: Colors.grey)),
+                      value: selectedSubjectId,
+                      items: subjects.map((subject) {
+                        return DropdownMenuItem<String>(
+                          value: subject['id'].toString(),
+                          child: Text(subject['name']),
+                        );
+                      }).toList(),
                       onChanged: (value) {
-                        setState(() => selectedClass = value);
+                        setState(() => selectedSubjectId = value);
                       },
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: Colors.grey,
-                      ),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: Colors.grey),
                       isExpanded: true,
                     ),
                   ),
@@ -99,6 +273,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               ),
               const SizedBox(height: 15),
 
+              // Enroll Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -109,7 +284,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: enrollStudent,
                   child: const Text(
                     "Enroll",
                     style: TextStyle(
@@ -125,6 +300,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         ),
       ),
 
+      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
@@ -155,17 +331,17 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     );
   }
 
-  Widget _buildTextField(String hint) {
+  // TextField Builder
+  Widget _buildTextField(String hint, TextEditingController controller) {
     return TextField(
+      controller: controller,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.grey),
         filled: true,
         fillColor: const Color(0xFFF5F5F5),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,

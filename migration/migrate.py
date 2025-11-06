@@ -25,19 +25,6 @@ cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_DATABASE};")
 cursor.execute(f"USE {DB_DATABASE};")
 
 # ----------------------
-# LECTURERS TABLE
-# ----------------------
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS lecturers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-""")
-
-# ----------------------
 # USERS TABLE (login for lecturers only)
 # ----------------------
 cursor.execute("""
@@ -59,8 +46,11 @@ CREATE TABLE IF NOT EXISTS subjects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
+    image_url VARCHAR(255),  -- Optional image for the subject
+    lecturer_id INT NOT NULL,  -- Assigned lecturer
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lecturer_id) REFERENCES users(id)
 );
 """)
 
@@ -71,12 +61,10 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS classes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     subject_id INT NOT NULL,
-    lecturer_id INT NOT NULL,
     schedule VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (subject_id) REFERENCES subjects(id),
-    FOREIGN KEY (lecturer_id) REFERENCES lecturers(id)
+    FOREIGN KEY (subject_id) REFERENCES subjects(id)
 );
 """)
 
@@ -88,11 +76,13 @@ CREATE TABLE IF NOT EXISTS students (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     student_card_id VARCHAR(50) UNIQUE,
+    course VARCHAR(100),
+    subject_id INT NOT NULL,
     face_token VARCHAR(100) UNIQUE,
-    class_id INT,
+    face_image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (class_id) REFERENCES classes(id)
+    FOREIGN KEY (subject_id) REFERENCES subjects(id)
 );
 """)
 

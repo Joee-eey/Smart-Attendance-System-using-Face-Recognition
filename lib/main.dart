@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:userinterface/login.dart';
 import 'package:userinterface/signup.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+// void main() {
+//   runApp(const SmartAttendanceApp());
+// }
+
+Future<void> main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const SmartAttendanceApp());
 }
 
@@ -71,19 +77,18 @@ class HomePage extends StatelessWidget {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  style:
-                      ElevatedButton.styleFrom(
-                        backgroundColor: primary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ).copyWith(
-                        overlayColor: WidgetStateProperty.all(
-                          Colors.transparent,
-                        ),
-                        splashFactory: NoSplash.splashFactory,
-                      ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primary,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ).copyWith(
+                    overlayColor: WidgetStateProperty.all(
+                      Colors.transparent,
+                    ),
+                    splashFactory: NoSplash.splashFactory,
+                  ),
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -110,20 +115,19 @@ class HomePage extends StatelessWidget {
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton(
-                  style:
-                      OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.transparent),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        backgroundColor: const Color(0x1A1565C0),
-                        elevation: 0,
-                      ).copyWith(
-                        overlayColor: WidgetStateProperty.all(
-                          Colors.transparent,
-                        ),
-                        splashFactory: NoSplash.splashFactory,
-                      ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.transparent),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    backgroundColor: const Color(0x1A1565C0),
+                    elevation: 0,
+                  ).copyWith(
+                    overlayColor: WidgetStateProperty.all(
+                      Colors.transparent,
+                    ),
+                    splashFactory: NoSplash.splashFactory,
+                  ),
                   onPressed: () {
                     Navigator.push(
                       context,

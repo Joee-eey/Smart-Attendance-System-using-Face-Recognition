@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:userinterface/login.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -22,7 +23,9 @@ class _SignupPageState extends State<SignupPage> {
     String email,
     String password,
   ) async {
-    final url = Uri.parse('http://192.168.100.22:5001/signup');
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/signup');
+    // final url = Uri.parse('http://192.168.100.22:5001/signup');
 
     try {
       final response = await http.post(

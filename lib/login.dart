@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:userinterface/signup.dart';
 import 'package:userinterface/dashboard.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,7 +22,9 @@ class _LoginPageState extends State<LoginPage> {
       BuildContext context, String email, String password) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final url = Uri.parse('http://192.168.100.22:5001/login');
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/login');
+    // final url = Uri.parse('http://192.168.100.22:5001/login');
 
     // Missing email or password dialog
     if (email.isEmpty || password.isEmpty) {
@@ -59,11 +62,12 @@ class _LoginPageState extends State<LoginPage> {
       final message = data?['message'] ?? 'Unexpected server response';
 
       // Incorrect password or email not registered dialog
-      if (response.statusCode == 401 && message.contains("Incorrect password")) {
+      if (response.statusCode == 401 &&
+          message.contains("Incorrect password")) {
         _showAnimatedDialog(
           context,
           icon: Icons.lock_rounded,
-          iconColor:  const Color(0xFF1565C0),
+          iconColor: const Color(0xFF1565C0),
           title: "Incorrect Password",
           message: "The password you entered is incorrect. Please try again.",
           buttonText: "Retry",

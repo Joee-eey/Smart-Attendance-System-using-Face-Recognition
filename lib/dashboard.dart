@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:userinterface/attendance.dart';
+import 'package:userinterface/faceenroll.dart';
+import 'package:userinterface/settings.dart';
 
 class FileItem {
   String name;
@@ -15,7 +17,8 @@ class Folder {
   List<FileItem> files;
   bool isExpanded;
 
-  Folder(this.name, this.date, {this.files = const [], this.isExpanded = false});
+  Folder(this.name, this.date,
+      {this.files = const [], this.isExpanded = false});
 }
 
 class DashboardPage extends StatefulWidget {
@@ -116,8 +119,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -209,8 +212,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -229,8 +232,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           file.name = nameController.text;
                           file.date = DateTime.now();
                         } else {
-                          folder.files
-                              .add(FileItem(nameController.text, DateTime.now()));
+                          folder.files.add(
+                              FileItem(nameController.text, DateTime.now()));
                         }
                       });
                       Navigator.pop(context);
@@ -383,8 +386,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             child: const SizedBox(
                               width: 30,
                               height: 30,
-                              child:
-                                  Icon(Icons.add, color: Colors.white, size: 22),
+                              child: Icon(Icons.add,
+                                  color: Colors.white, size: 22),
                             ),
                           ),
                         ),
@@ -440,8 +443,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               color: const Color(0xFFF7F8FA),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Row(
                               children: [
                                 Container(
@@ -455,8 +457,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
@@ -467,8 +468,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                       Text(
                                         "Last updated on ${folder.date.day.toString().padLeft(2, '0')}/${folder.date.month.toString().padLeft(2, '0')}/${folder.date.year}",
                                         style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey),
+                                            fontSize: 12, color: Colors.grey),
                                       ),
                                     ],
                                   ),
@@ -500,8 +500,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                           vertical: 4),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF7F8FA),
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 15),
@@ -519,8 +518,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 Text(
                                                   file.name,
                                                   style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                     fontSize: 15,
                                                   ),
                                                 ),
@@ -534,16 +532,22 @@ class _DashboardPageState extends State<DashboardPage> {
                                             ),
                                           ),
                                           PopupMenuButton<String>(
-                                            icon: const Icon(Icons.more_vert_rounded, size: 20),
+                                            icon: const Icon(
+                                                Icons.more_vert_rounded,
+                                                size: 20),
                                             color: Color(0xE61565C0),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             onSelected: (value) {
                                               if (value == 'edit') {
-                                                _showFileDialog(folder, file: file, isEdit: true);
+                                                _showFileDialog(folder,
+                                                    file: file, isEdit: true);
                                               } else if (value == 'delete') {
-                                                _showDeleteDialog(file, isFile: true, folder: folder);
+                                                _showDeleteDialog(file,
+                                                    isFile: true,
+                                                    folder: folder);
                                               }
                                             },
                                             itemBuilder: (context) => [
@@ -551,9 +555,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 value: 'edit',
                                                 child: Row(
                                                   children: const [
-                                                    Icon(Icons.edit_rounded, color: Colors.white, size: 20),
+                                                    Icon(Icons.edit_rounded,
+                                                        color: Colors.white,
+                                                        size: 20),
                                                     SizedBox(width: 5),
-                                                    Text('Edit', style: TextStyle(color: Colors.white)),
+                                                    Text('Edit',
+                                                        style: TextStyle(
+                                                            color:
+                                                                Colors.white)),
                                                   ],
                                                 ),
                                               ),
@@ -561,9 +570,14 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 value: 'delete',
                                                 child: Row(
                                                   children: const [
-                                                    Icon(Icons.delete_rounded, color: Colors.white, size: 20),
+                                                    Icon(Icons.delete_rounded,
+                                                        color: Colors.white,
+                                                        size: 20),
                                                     SizedBox(width: 5),
-                                                    Text('Delete', style: TextStyle(color: Colors.white)),
+                                                    Text('Delete',
+                                                        style: TextStyle(
+                                                            color:
+                                                                Colors.white)),
                                                   ],
                                                 ),
                                               ),
@@ -579,12 +593,15 @@ class _DashboardPageState extends State<DashboardPage> {
                                   child: Container(
                                     width: double.infinity,
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: const Color(0x1A000000), width: 1),
+                                      border: Border.all(
+                                          color: const Color(0x1A000000),
+                                          width: 1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: TextButton.icon(
                                       onPressed: () => _showFileDialog(folder),
-                                      icon: const Icon(Icons.add_rounded, color: Color(0xFF1565C0), size: 18),
+                                      icon: const Icon(Icons.add_rounded,
+                                          color: Color(0xFF1565C0), size: 18),
                                       label: const Text(
                                         "Add New File",
                                         style: TextStyle(
@@ -614,9 +631,9 @@ class _DashboardPageState extends State<DashboardPage> {
         selectedItemColor: const Color(0xFF1565C0),
         unselectedItemColor: Colors.grey,
         currentIndex: 0,
-        selectedFontSize: 12, 
+        selectedFontSize: 12,
         unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24), 
+        selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
         items: const [
           BottomNavigationBarItem(
@@ -632,7 +649,18 @@ class _DashboardPageState extends State<DashboardPage> {
           if (index == 1) {
             Navigator.push(
               context,
+              MaterialPageRoute(builder: (context) => const Enrollment()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
               MaterialPageRoute(builder: (context) => const Attendance()),
+            );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const AccountSettingsPage()),
             );
           }
         },

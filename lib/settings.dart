@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+// void main() {
+//   WidgetsFlutterBinding.ensureInitialized();
 
-  runApp(const MyApp());
-}
+//   runApp(const MyApp());
+// }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+// class MyApp extends StatelessWidget {
+//   const MyApp({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Account Settings',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      home: const AccountSettingsPage(),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       title: 'Account Settings',
+//       debugShowCheckedModeBanner: false,
+//       theme: ThemeData(
+//         primarySwatch: Colors.blue,
+//         scaffoldBackgroundColor: Colors.white,
+//       ),
+//       home: const AccountSettingsPage(),
+//     );
+//   }
+// }
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -67,20 +67,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        systemNavigationBarColor: Colors.white, 
+        systemNavigationBarColor: Colors.white,
         systemNavigationBarIconBrightness: Brightness.dark,
         systemNavigationBarDividerColor: Colors.transparent,
-        statusBarColor: Colors.white, 
+        statusBarColor: Colors.white,
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFFFFFFF),
         appBar: AppBar(
-          backgroundColor: const Color(0xFFFFFFFF),
-          elevation: 0,
-          centerTitle: true
-        ),
+            backgroundColor: const Color(0xFFFFFFFF),
+            elevation: 0,
+            centerTitle: true),
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
@@ -125,7 +124,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                         color: Color(0x50000000),
                       ),
                     ),
-
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -133,7 +131,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                       color: const Color(0x1A000000),
                     ),
                     const SizedBox(height: 10),
-
                     Row(
                       children: [
                         GestureDetector(
@@ -181,7 +178,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 15),
                     const Text(
                       "Username",
@@ -282,9 +278,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 15),
-
               Container(
                 width: double.infinity,
                 padding:
@@ -303,7 +297,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                           fontSize: 15,
                           color: Color(0x50000000)),
                     ),
-
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
@@ -311,7 +304,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                       color: const Color(0x1A000000),
                     ),
                     const SizedBox(height: 5),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -339,9 +331,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 15),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

@@ -1,22 +1,10 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:userinterface/scanattendance.dart';
-
-// void main() {
-//   runApp(const MyApp());
-// }
-
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const MaterialApp(
-//       debugShowCheckedModeBanner: false,
-//       home: Attendance(),
-//     );
-//   }
-// }
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Attendance extends StatefulWidget {
   const Attendance({super.key});
@@ -26,12 +14,89 @@ class Attendance extends StatefulWidget {
 }
 
 class _AttendanceState extends State<Attendance> {
-  final List<Map<String, dynamic>> attendanceList = [
-    {'name': 'Ethan Harper', 'time': '9:15 AM', 'status': 'Present'},
-    {'name': 'Olivia Bennett', 'time': '10:17 AM', 'status': 'Present'},
-    {'name': 'Noah Carter', 'time': '10:20 AM', 'status': 'Present'},
-    {'name': 'Sophia Davis', 'time': '--:-- --', 'status': 'Absent'},
-  ];
+  List<Map<String, dynamic>> attendanceList = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchAttendance();
+    fetchSummary();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments as Map?;
+    if (args != null && args['refresh'] == true) {
+      fetchAttendance(); // reload list
+    }
+  }
+
+  Future<void> fetchAttendance() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await http.get(
+        Uri.parse('$baseUrl/attendance'),
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        setState(() {
+          attendanceList = data
+              .map((e) => {
+                    'name': e['name'] ?? 'Unknown',
+                    'time': e['time'] ?? '--:-- --',
+                    'status': e['status'] ?? 'Absent',
+                    'date': e['date'] ?? '',
+                  })
+              .toList();
+          isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load data');
+      }
+    } catch (e) {
+      log("Error fetching attendance: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  int presentCount = 0;
+  int absentCount = 0;
+
+  Future<void> fetchSummary() async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await http.get(Uri.parse('$baseUrl/attendance/summary'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Log the data fetched from backend
+        log("Fetched summary data: $data");
+
+        setState(() {
+          presentCount = data['present_count'] ?? 0;
+          absentCount = data['absent_count'] ?? 0;
+        });
+      } else {
+        log("Failed to load summary: ${response.statusCode}");
+        setState(() {
+          presentCount = 0;
+          absentCount = 0;
+        });
+      }
+    } catch (e) {
+      log("Error fetching summary: $e");
+      setState(() {
+        presentCount = 0;
+        absentCount = 0;
+      });
+    }
+  }
 
   void _showDeleteDialog(Map<String, dynamic> record) {
     showDialog(
@@ -117,11 +182,6 @@ class _AttendanceState extends State<Attendance> {
       statusBarIconBrightness: Brightness.dark,
     ));
 
-    final int presentCount =
-        attendanceList.where((e) => e['status'] == 'Present').length;
-    final int absentCount =
-        attendanceList.where((e) => e['status'] == 'Absent').length;
-
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFFFFFFFF),
@@ -136,222 +196,226 @@ class _AttendanceState extends State<Attendance> {
           },
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            TextField(
-              style: const TextStyle(
-                color: Color(0xFF000000),
-              ),
-              decoration: InputDecoration(
-                hintText: "Search",
-                hintStyle: const TextStyle(
-                  color: Color(0xFF9E9E9E),
-                ),
-                suffixIcon: const Icon(Icons.search, color: Color(0x4D000000)),
-                contentPadding:
-                    const EdgeInsets.only(left: 10, top: 12, bottom: 12),
-                filled: true,
-                fillColor: const Color(0xFFF6F6F6),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Color(0x1A000000),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Color(0xFFF6F6F6),
-                    width: 1,
-                  ),
-                ),
-              ),
-              cursorColor: Colors.black,
-            ),
-            const SizedBox(height: 15),
-            const Text(
-              "Today's Summary",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 70,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  TextField(
+                    style: const TextStyle(
+                      color: Color(0xFF000000),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$presentCount',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                    decoration: InputDecoration(
+                      hintText: "Search",
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF9E9E9E),
+                      ),
+                      suffixIcon:
+                          const Icon(Icons.search, color: Color(0x4D000000)),
+                      contentPadding:
+                          const EdgeInsets.only(left: 10, top: 12, bottom: 12),
+                      filled: true,
+                      fillColor: const Color(0xFFF6F6F6),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Color(0x1A000000),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFF6F6F6),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    cursorColor: Colors.black,
+                  ),
+                  const SizedBox(height: 15),
+                  const Text(
+                    "Today's Summary",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 70,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.2),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$presentCount',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              const Text('Present',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 0),
-                        const Text(
-                          'Present',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Container(
-                    height: 70,
-                    margin: const EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withValues(alpha: 0.2),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$absentCount',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 70,
+                          margin: const EdgeInsets.only(left: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.2),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$absentCount',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const Text('Absent',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 0),
-                        const Text(
-                          'Absent',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "Recent Scans",
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Recent Scans",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Expanded(
-              child: ListView.builder(
-                itemCount: attendanceList.length,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemBuilder: (context, index) {
-                  final record = attendanceList[index];
-                  return Dismissible(
-                    key: Key(record['name']),
-                    background: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF84F31),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      height: 60,
-                      child: const Icon(Icons.delete,
-                          color: Color(0xFFFFFFFF), size: 24),
-                    ),
-                    direction: DismissDirection.endToStart,
-                    confirmDismiss: (direction) async {
-                      if (direction == DismissDirection.endToStart) {
-                        _showDeleteDialog(record);
-                        return false;
-                      }
-                      return false;
-                    },
-                    child: Container(
-                      height: 60,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F8FA),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.account_circle_rounded,
-                              size: 40, color: Color(0xFF9E9E9E)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 5),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: attendanceList.length,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemBuilder: (context, index) {
+                        final record = attendanceList[index];
+                        return Dismissible(
+                          key: Key(record['name']),
+                          background: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF84F31),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            height: 60,
+                            child: const Icon(Icons.delete,
+                                color: Color(0xFFFFFFFF), size: 24),
+                          ),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (direction) async {
+                            if (direction == DismissDirection.endToStart) {
+                              _showDeleteDialog(record);
+                              return false;
+                            }
+                            return false;
+                          },
+                          child: Container(
+                            height: 60,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7F8FA),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  record['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
+                                const Icon(Icons.account_circle_rounded,
+                                    size: 40, color: Color(0xFF9E9E9E)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        record['name'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      Text(
+                                        record['time'],
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Text(
-                                  record['time'],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
+                                  (record['status'] != null)
+                                      ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
+                                      : 'Unknown',
+                                  style: TextStyle(
+                                    color: (record['status']
+                                                ?.toString()
+                                                .toLowerCase() ==
+                                            'present')
+                                        ? const Color(0xFF00B38A)
+                                        : const Color(0xFFEA324C),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          Text(
-                            record['status'],
-                            style: TextStyle(
-                              color: record['status'] == 'Present'
-                                  ? const Color(0xFF00B38A)
-                                  : const Color(0xFFEA324C),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 70),
@@ -375,8 +439,7 @@ class _AttendanceState extends State<Attendance> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.camera_alt_rounded,
-                      color: Colors.white, size: 20),
+                  Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
                     "Take Attendance",

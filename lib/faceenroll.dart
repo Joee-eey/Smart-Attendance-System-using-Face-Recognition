@@ -1,29 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:userinterface/faceenroll2.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+class Enrollment extends StatefulWidget {
+  const Enrollment({super.key});
 
-  final cameras = await availableCameras();
-  runApp(Enrollment(cameras: cameras));
+  @override
+  State<Enrollment> createState() => _EnrollmentState();
 }
 
-class Enrollment extends StatelessWidget {
-  final List<CameraDescription> cameras;
+class _EnrollmentState extends State<Enrollment> {
+  List<CameraDescription>? _cameras;
+  bool _loading = true;
 
-  const Enrollment({super.key, required this.cameras});
+  @override
+  void initState() {
+    super.initState();
+    _initializeCameras();
+  }
+
+  Future<void> _initializeCameras() async {
+    final cameras = await availableCameras();
+    setState(() {
+      _cameras = cameras;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Enrollment',
-      theme: ThemeData(primaryColor: const Color(0xFF1565C0)),
-      home: ScannerScreen(cameras: cameras),
-      debugShowCheckedModeBanner: false,
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Enrollment'),
+        backgroundColor: const Color(0xFF1565C0),
+      ),
+      body: ScannerScreen(cameras: _cameras!),
     );
   }
 }
@@ -34,6 +53,7 @@ class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key, required this.cameras});
 
   @override
+  // ignore: library_private_types_in_public_api
   _ScannerScreenState createState() => _ScannerScreenState();
 }
 
@@ -46,6 +66,55 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   int currentCameraIndex = 0;
   CameraController? _controller;
+
+  void _pickImageFromGallery() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null && mounted) {
+        debugPrint("Picked image path: ${image.path}");
+
+        // ✅ Dispose camera before navigating
+        await _controller?.dispose();
+        _controller = null;
+
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EnrollmentPage(imagePath: image.path),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  void _capturePhoto() async {
+    if (!_isCameraReady || _controller == null) return;
+
+    try {
+      final XFile image = await _controller!.takePicture();
+      debugPrint("Captured photo path: ${image.path}");
+
+      // ✅ Dispose the camera before navigating
+      await _controller?.dispose();
+      _controller = null;
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EnrollmentPage(imagePath: image.path),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error capturing photo: $e");
+    }
+  }
 
   @override
   void initState() {
@@ -88,7 +157,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 
-
   void _switchCamera() async {
     if (widget.cameras.length < 2) return;
 
@@ -114,16 +182,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.white, 
+      systemNavigationBarColor: Colors.white,
       systemNavigationBarIconBrightness: Brightness.dark,
-      statusBarColor: Colors.transparent, 
-      statusBarIconBrightness: Brightness.light, 
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
     ));
 
     return Scaffold(
       backgroundColor: Colors.white,
-
-    
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -151,7 +217,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
           ],
         ),
       ),
-
       body: Column(
         children: [
           Container(
@@ -174,7 +239,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-
                       GestureDetector(
                         onTap: () {
                           setState(() {
@@ -190,7 +254,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ),
           ),
-
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -212,7 +275,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     )
                   else
                     Container(color: Colors.grey[200]),
-
                   if (showGrid)
                     IgnorePointer(
                       child: CustomPaint(
@@ -220,7 +282,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
                         painter: GridPainter(),
                       ),
                     ),
-
                   if (showSettings)
                     Positioned(
                       top: 0,
@@ -272,7 +333,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
               ),
             ),
           ),
-
           Container(
             color: const Color(0xFF1565C0),
             height: 120,
@@ -292,17 +352,44 @@ class _ScannerScreenState extends State<ScannerScreen> {
                           border: Border.all(color: Colors.white, width: 4),
                         ),
                       ),
-                      Container(
-                        width: 55,
-                        height: 55,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+                      GestureDetector(
+                        onTap: _capturePhoto,
+                        child: Container(
+                          width: 55,
+                          height: 55,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                Positioned(
+                  left: 40,
+                  bottom: 35,
+                  child: GestureDetector(
+                    onTap: _pickImageFromGallery,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const Icon(Icons.photo_library_rounded,
+                            color: Colors.white, size: 28),
+                      ],
+                    ),
+                  ),
+                ),
+
                 Positioned(
                   right: 40,
                   bottom: 35,
@@ -333,7 +420,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 
-  Widget _buildCustomSwitch(String title, bool value, Function(bool) onChanged) {
+  Widget _buildCustomSwitch(
+      String title, bool value, Function(bool) onChanged) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -364,6 +452,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    // Properly release the camera before leaving
+    if (_controller != null) {
+      _controller!.dispose();
+      _controller = null;
+    }
+    super.dispose();
   }
 }
 

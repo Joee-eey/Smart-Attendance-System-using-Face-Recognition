@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
+import 'package:userinterface/attendance.dart';
 
 class ScanAttendance extends StatefulWidget {
   const ScanAttendance({super.key});
@@ -19,6 +24,8 @@ class _ScanAttendanceState extends State<ScanAttendance> {
   int currentCameraIndex = 0;
   CameraController? _controller;
   List<CameraDescription>? cameras;
+
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -91,6 +98,128 @@ class _ScanAttendanceState extends State<ScanAttendance> {
     await _initializeCamera(cameras![currentCameraIndex]);
   }
 
+  Future<void> _pickImageFromGallery() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image == null) return;
+
+    // Show loading dialog
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF1565C0),
+          ),
+        ),
+      );
+    }
+
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final uri = Uri.parse('$baseUrl/recognize');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('image', image.path));
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(responseBody) as List;
+
+        if (!mounted) return;
+
+        // Count students that were recognized successfully (skip errors)
+        final recognizedCount = result.where((r) => r["name"] != null).length;
+
+        _showAnimatedDialog(
+          context: context,
+          icon: Icons.check_circle_outline,
+          iconColor: Colors.green,
+          title: "Success",
+          message: "$recognizedCount students recognized successfully.",
+          buttonText: "OK",
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const Attendance()),
+            );
+          },
+        );
+      } else {
+        _showAnimatedDialog(
+          context: context,
+          icon: Icons.error_outline,
+          iconColor: Colors.red,
+          title: "Error",
+          message: "Recognition failed: $responseBody",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      _showAnimatedDialog(
+        context: context,
+        icon: Icons.error_outline,
+        iconColor: Colors.red,
+        title: "Error",
+        message: "Something went wrong: $e",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+    }
+  }
+
+  void _showAnimatedDialog({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 60, color: iconColor),
+            const SizedBox(height: 16),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: iconColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8))),
+                onPressed: onPressed,
+                child: Text(buttonText),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -116,9 +245,9 @@ class _ScanAttendanceState extends State<ScanAttendance> {
           selectedItemColor: Colors.grey,
           unselectedItemColor: Colors.grey,
           currentIndex: 1,
-          selectedFontSize: 12, 
+          selectedFontSize: 12,
           unselectedFontSize: 12,
-          selectedIconTheme: const IconThemeData(size: 24), 
+          selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
           onTap: (index) {},
           items: const [
@@ -133,7 +262,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
           ],
         ),
       ),
-
       body: Column(
         children: [
           Container(
@@ -145,8 +273,12 @@ class _ScanAttendanceState extends State<ScanAttendance> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () {Navigator.pop(context);},
-                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 28),),
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Icon(Icons.close_rounded,
+                        color: Colors.white, size: 28),
+                  ),
                   Row(
                     children: [
                       GestureDetector(
@@ -173,7 +305,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
               ),
             ),
           ),
-
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -195,7 +326,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
                     )
                   else
                     Container(color: Colors.grey[200]),
-
                   if (showGrid)
                     IgnorePointer(
                       child: CustomPaint(
@@ -203,7 +333,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
                         painter: GridPainter(),
                       ),
                     ),
-
                   if (showSettings)
                     Positioned(
                       top: 0,
@@ -255,7 +384,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
               ),
             ),
           ),
-
           Container(
             color: const Color(0xFF1565C0),
             height: 120,
@@ -286,6 +414,30 @@ class _ScanAttendanceState extends State<ScanAttendance> {
                     ],
                   ),
                 ),
+                // ✅ New gallery button (left)
+                Positioned(
+                  left: 40,
+                  bottom: 35,
+                  child: GestureDetector(
+                    onTap: _pickImageFromGallery,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const Icon(Icons.photo_library_rounded,
+                            color: Colors.white, size: 28),
+                      ],
+                    ),
+                  ),
+                ),
+                // ✅ Existing switch camera button (right)
                 Positioned(
                   right: 40,
                   bottom: 35,
@@ -316,7 +468,8 @@ class _ScanAttendanceState extends State<ScanAttendance> {
     );
   }
 
-  Widget _buildCustomSwitch(String title, bool value, Function(bool) onChanged) {
+  Widget _buildCustomSwitch(
+      String title, bool value, Function(bool) onChanged) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -347,6 +500,16 @@ class _ScanAttendanceState extends State<ScanAttendance> {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    // Properly release the camera before leaving
+    if (_controller != null) {
+      _controller!.dispose();
+      _controller = null;
+    }
+    super.dispose();
   }
 }
 
