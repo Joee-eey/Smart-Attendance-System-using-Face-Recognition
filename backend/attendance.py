@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 import mysql.connector
 import os
 from dotenv import load_dotenv
@@ -22,8 +22,7 @@ def get_db_connection():
 @attendance_bp.route("/attendance", methods=["GET"])
 def get_attendance():
     try:
-        class_id = 1
-        # class_id = request.args.get("class_id", type=int)
+        class_id = request.args.get("class_id", type=int)
         if not class_id:
             return jsonify({"error": "class_id is required"}), 400
 
@@ -78,8 +77,7 @@ def get_attendance():
 @attendance_bp.route("/attendance/summary", methods=["GET"])
 def get_attendance_summary():
     try:
-        # class_id = request.args.get("class_id", type=int)
-        class_id = 1
+        class_id = request.args.get("class_id", type=int)
         if not class_id:
             return jsonify({"error": "class_id is required"}), 400
 

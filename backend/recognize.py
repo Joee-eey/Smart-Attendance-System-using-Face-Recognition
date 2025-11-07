@@ -39,6 +39,15 @@ def recognize_face():
     image = request.files.get("image")
     if not image:
         return jsonify({"error": "No image uploaded"}), 400
+    
+    class_id = request.form.get("class_id")
+    if not class_id:
+        return jsonify({"error": "No class_id provided"}), 400
+
+    try:
+        class_id = int(class_id)  # convert to int
+    except ValueError:
+        return jsonify({"error": "Invalid class_id"}), 400
 
     conn = None
     cursor = None
@@ -132,7 +141,7 @@ def recognize_face():
             cursor.execute("""
                 SELECT id FROM attendance 
                 WHERE class_id = %s AND student_id = %s AND DATE(date) = %s
-            """, (1, student["id"], date.today()))
+            """, (class_id, student["id"], date.today()))
             existing = cursor.fetchone()
 
             if existing:

@@ -7,7 +7,11 @@ import 'package:userinterface/scanattendance.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Attendance extends StatefulWidget {
-  const Attendance({super.key});
+  final int classId;
+  const Attendance({
+    super.key,
+    required this.classId,
+  });
 
   @override
   State<Attendance> createState() => _AttendanceState();
@@ -20,8 +24,8 @@ class _AttendanceState extends State<Attendance> {
   @override
   void initState() {
     super.initState();
-    fetchAttendance();
-    fetchSummary();
+    fetchAttendance(widget.classId);
+    fetchSummary(widget.classId);
   }
 
   @override
@@ -29,15 +33,15 @@ class _AttendanceState extends State<Attendance> {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments as Map?;
     if (args != null && args['refresh'] == true) {
-      fetchAttendance(); // reload list
+      fetchAttendance(widget.classId); // reload list
     }
   }
 
-  Future<void> fetchAttendance() async {
+  Future<void> fetchAttendance(int classId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
       final response = await http.get(
-        Uri.parse('$baseUrl/attendance'),
+        Uri.parse('$baseUrl/attendance?class_id=$classId'),
       );
 
       if (response.statusCode == 200) {
@@ -67,10 +71,10 @@ class _AttendanceState extends State<Attendance> {
   int presentCount = 0;
   int absentCount = 0;
 
-  Future<void> fetchSummary() async {
+  Future<void> fetchSummary(int classId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
-      final response = await http.get(Uri.parse('$baseUrl/attendance/summary'));
+      final response = await http.get(Uri.parse('$baseUrl/attendance/summary?class_id=$classId'));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -423,7 +427,9 @@ class _AttendanceState extends State<Attendance> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ScanAttendance()),
+              MaterialPageRoute(
+                  builder: (context) =>
+                      ScanAttendance(classId: widget.classId)),
             );
           },
           child: Container(

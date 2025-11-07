@@ -8,7 +8,8 @@ import 'dart:convert';
 import 'package:userinterface/attendance.dart';
 
 class ScanAttendance extends StatefulWidget {
-  const ScanAttendance({super.key});
+  final int classId;
+  const ScanAttendance({super.key, required this.classId});
 
   @override
   State<ScanAttendance> createState() => _ScanAttendanceState();
@@ -120,6 +121,7 @@ class _ScanAttendanceState extends State<ScanAttendance> {
       final uri = Uri.parse('$baseUrl/recognize');
       final request = http.MultipartRequest('POST', uri);
       request.files.add(await http.MultipartFile.fromPath('image', image.path));
+      request.fields['class_id'] = widget.classId.toString();
 
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
@@ -146,7 +148,8 @@ class _ScanAttendanceState extends State<ScanAttendance> {
             Navigator.of(context).pop();
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const Attendance()),
+              MaterialPageRoute(
+                  builder: (context) => Attendance(classId: widget.classId)),
             );
           },
         );
