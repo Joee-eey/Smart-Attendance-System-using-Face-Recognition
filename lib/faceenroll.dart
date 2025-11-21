@@ -1,3 +1,4 @@
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
@@ -38,10 +39,6 @@ class _EnrollmentState extends State<Enrollment> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Enrollment'),
-        backgroundColor: const Color(0xFF1565C0),
-      ),
       body: ScannerScreen(cameras: _cameras!),
     );
   }
@@ -53,7 +50,6 @@ class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key, required this.cameras});
 
   @override
-  // ignore: library_private_types_in_public_api
   _ScannerScreenState createState() => _ScannerScreenState();
 }
 
@@ -67,54 +63,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
   int currentCameraIndex = 0;
   CameraController? _controller;
 
-  void _pickImageFromGallery() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image != null && mounted) {
-        debugPrint("Picked image path: ${image.path}");
-
-        // ✅ Dispose camera before navigating
-        await _controller?.dispose();
-        _controller = null;
-
-        if (!mounted) return;
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EnrollmentPage(imagePath: image.path),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error picking image: $e");
-    }
-  }
-
-  void _capturePhoto() async {
-    if (!_isCameraReady || _controller == null) return;
-
-    try {
-      final XFile image = await _controller!.takePicture();
-      debugPrint("Captured photo path: ${image.path}");
-
-      // ✅ Dispose the camera before navigating
-      await _controller?.dispose();
-      _controller = null;
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EnrollmentPage(imagePath: image.path),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error capturing photo: $e");
-    }
-  }
+  // Store captured or picked image for preview
+  XFile? _capturedImage; 
 
   @override
   void initState() {
@@ -134,9 +84,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     try {
       await _controller!.initialize();
-      await _controller!.setFlashMode(
-        flashOn ? FlashMode.torch : FlashMode.off,
-      );
+      await _controller!.setFlashMode(flashOn ? FlashMode.torch : FlashMode.off);
 
       if (mounted) {
         setState(() {
@@ -150,19 +98,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   void _toggleFlash() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
-
     setState(() => flashOn = !flashOn);
-    await _controller!.setFlashMode(
-      flashOn ? FlashMode.torch : FlashMode.off,
-    );
+    await _controller!.setFlashMode(flashOn ? FlashMode.torch : FlashMode.off);
   }
 
   void _switchCamera() async {
     if (widget.cameras.length < 2) return;
 
-    final currentLensDirection =
-        widget.cameras[currentCameraIndex].lensDirection;
-
+    final currentLensDirection = widget.cameras[currentCameraIndex].lensDirection;
     final newIndex = widget.cameras.indexWhere((camera) =>
         camera.lensDirection ==
         (currentLensDirection == CameraLensDirection.front
@@ -179,6 +122,57 @@ class _ScannerScreenState extends State<ScannerScreen> {
     await _initializeCamera(widget.cameras[currentCameraIndex]);
   }
 
+  void _capturePhoto() async {
+    if (!_isCameraReady || _controller == null) return;
+
+    try {
+      final XFile image = await _controller!.takePicture();
+      setState(() {
+        _capturedImage = image;
+      });
+    } catch (e) {
+      debugPrint("Error capturing photo: $e");
+    }
+  }
+
+  void _pickImageFromGallery() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null && mounted) {
+        setState(() {
+          _capturedImage = image;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  void _confirmImage() async {
+    if (_capturedImage == null) return;
+
+    await _controller?.dispose();
+    _controller = null;
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EnrollmentPage(imagePath: _capturedImage!.path),
+      ),
+    );
+  }
+
+  void _retakeImage() {
+    setState(() {
+      _capturedImage = null;
+      _isCameraReady = false;
+    });
+    _initializeCamera(widget.cameras[currentCameraIndex]);
+  }
+
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -189,230 +183,233 @@ class _ScannerScreenState extends State<ScannerScreen> {
     ));
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Colors.white, width: 1),
-          ),
-        ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          selectedItemColor: const Color(0xFF1565C0),
-          unselectedItemColor: Colors.grey,
-          currentIndex: 1,
-          onTap: (index) {},
-          items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard), label: 'Dashboard'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.qr_code_scanner), label: 'Scan'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.bar_chart), label: 'Reports'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.settings), label: 'Settings'),
+      backgroundColor: const Color(0xFF1565C0),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+      body: _capturedImage != null ? _buildPreview() : _buildCameraUI(),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.white, width: 1)),
+      ),
+      child: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF1565C0),
+        unselectedItemColor: Colors.grey,
+        currentIndex: 1,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        selectedIconTheme: const IconThemeData(size: 24),
+        unselectedIconTheme: const IconThemeData(size: 24),
+        items: const [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings_rounded), label: 'Settings'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraUI() {
+    return Column(
+      children: [
+        _buildTopBar(),
+        Expanded(child: _buildCameraPreview()),
+        _buildCameraBottomBar(),
+      ],
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Container(
+      color: const Color(0xFF1565C0),
+      padding: const EdgeInsets.fromLTRB(16, 35, 16, 10),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+            ),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: _toggleFlash,
+                  child: Icon(
+                    flashOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                    color: flashOn ? Color(0xFFFBC04A) : Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: () => setState(() => showSettings = !showSettings),
+                  child: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 26),
+                ),
+              ],
+            ),
           ],
         ),
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    return GestureDetector(
+      onTap: () {
+        if (showSettings) setState(() => showSettings = false);
+      },
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Container(
-            color: const Color(0xFF1565C0),
-            padding: const EdgeInsets.fromLTRB(16, 50, 16, 10),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Icon(Icons.close, color: Colors.white, size: 28),
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: _toggleFlash,
-                        child: Icon(
-                          flashOn ? Icons.flash_on : Icons.flash_off,
-                          color: flashOn ? Colors.yellow : Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            showSettings = !showSettings;
-                          });
-                        },
-                        child: const Icon(Icons.more_vert,
-                            color: Colors.white, size: 26),
-                      ),
-                    ],
-                  ),
-                ],
+          if (_isCameraReady && _controller != null)
+            ClipRect(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _controller!.value.previewSize!.height,
+                  height: _controller!.value.previewSize!.width,
+                  child: CameraPreview(_controller!),
+                ),
+              ),
+            )
+          else
+            Container(color: Colors.grey[200]),
+          if (showGrid)
+            IgnorePointer(
+              child: CustomPaint(size: Size.infinite, painter: GridPainter()),
+            ),
+          if (showSettings) _buildSettingsPanel(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsPanel() {
+    return Positioned(
+      top: 0,
+      right: 12,
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBC04A).withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Settings",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+                fontSize: 18,
               ),
             ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (showSettings) setState(() => showSettings = false);
-              },
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_isCameraReady && _controller != null)
-                    ClipRect(
-                      child: FittedBox(
-                        fit: BoxFit.cover,
-                        child: SizedBox(
-                          width: _controller!.value.previewSize!.height,
-                          height: _controller!.value.previewSize!.width,
-                          child: CameraPreview(_controller!),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(color: Colors.grey[200]),
-                  if (showGrid)
-                    IgnorePointer(
-                      child: CustomPaint(
-                        size: Size.infinite,
-                        painter: GridPainter(),
-                      ),
-                    ),
-                  if (showSettings)
-                    Positioned(
-                      top: 0,
-                      right: 12,
-                      child: Container(
-                        width: 200,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFBC04A).withValues(alpha: .95),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: .25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Settings",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 18,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              height: 1,
-                              color: Colors.white,
-                              margin: const EdgeInsets.only(bottom: 5),
-                            ),
-                            const SizedBox(height: 5),
-                            _buildCustomSwitch("Grid", showGrid, (v) {
-                              setState(() => showGrid = v);
-                            }),
-                            _buildCustomSwitch("Sound", soundOn, (v) {
-                              setState(() => soundOn = v);
-                            }),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            color: const Color(0xFF1565C0),
-            height: 120,
+            const SizedBox(height: 6),
+            Container(height: 1, color: Colors.white, margin: const EdgeInsets.only(bottom: 5)),
+            const SizedBox(height: 5),
+            _buildCustomSwitch("Grid", showGrid, (v) => setState(() => showGrid = v)),
+            _buildCustomSwitch("Sound", soundOn, (v) => setState(() => soundOn = v)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraBottomBar() {
+    return Container(
+      color: const Color(0xFF1565C0),
+      height: 85,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            bottom: 12,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Positioned(
-                  bottom: 30,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 65,
-                        height: 65,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: _capturePhoto,
-                        child: Container(
-                          width: 55,
-                          height: 55,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
                   ),
                 ),
-
-                Positioned(
-                  left: 40,
-                  bottom: 35,
-                  child: GestureDetector(
-                    onTap: _pickImageFromGallery,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const Icon(Icons.photo_library_rounded,
-                            color: Colors.white, size: 28),
-                      ],
-                    ),
-                  ),
-                ),
-
-                Positioned(
-                  right: 40,
-                  bottom: 35,
-                  child: GestureDetector(
-                    onTap: _switchCamera,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const Icon(Icons.cameraswitch_rounded,
-                            color: Colors.white, size: 30),
-                      ],
+                GestureDetector(
+                  onTap: _capturePhoto,
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            left: 40,
+            bottom: 18,
+            child: GestureDetector(
+              onTap: _pickImageFromGallery,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const Icon(Icons.photo_library_rounded, color: Colors.white, size: 28),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: 18,
+            child: GestureDetector(
+              onTap: _switchCamera,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const Icon(Icons.cameraswitch_rounded, color: Colors.white, size: 30),
+                ],
+              ),
             ),
           ),
         ],
@@ -420,8 +417,62 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 
-  Widget _buildCustomSwitch(
-      String title, bool value, Function(bool) onChanged) {
+  Widget _buildPreview() {
+    return Stack(
+      children: [
+        SizedBox.expand(
+          child: Image.file(
+            File(_capturedImage!.path),
+            fit: BoxFit.cover,
+          ),
+        ),
+        Positioned(
+          top: 35,
+          left: 16,
+          child: GestureDetector(
+            onTap: _retakeImage,
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+          ),
+        ),
+        Positioned(
+          bottom: 40,
+          left: 50,
+          child: GestureDetector(
+            onTap: _retakeImage,
+            child: Column(
+              children: const [
+                Icon(Icons.refresh_rounded, color: Colors.white, size: 40),
+                SizedBox(height: 5),
+                Text(
+                  "Retake",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 40,
+          right: 50,
+          child: GestureDetector(
+            onTap: _confirmImage,
+            child: Column(
+              children: const [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 40),
+                SizedBox(height: 5),
+                Text(
+                  "Confirm",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomSwitch(String title, bool value, Function(bool) onChanged) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -456,11 +507,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   @override
   void dispose() {
-    // Properly release the camera before leaving
-    if (_controller != null) {
-      _controller!.dispose();
-      _controller = null;
-    }
+    _controller?.dispose();
     super.dispose();
   }
 }
@@ -476,10 +523,8 @@ class GridPainter extends CustomPainter {
     double stepY = size.height / 3;
 
     for (int i = 1; i < 3; i++) {
-      canvas.drawLine(
-          Offset(stepX * i, 0), Offset(stepX * i, size.height), linePaint);
-      canvas.drawLine(
-          Offset(0, stepY * i), Offset(size.width, stepY * i), linePaint);
+      canvas.drawLine(Offset(stepX * i, 0), Offset(stepX * i, size.height), linePaint);
+      canvas.drawLine(Offset(0, stepY * i), Offset(size.width, stepY * i), linePaint);
     }
   }
 

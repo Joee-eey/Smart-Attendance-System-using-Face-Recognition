@@ -304,28 +304,22 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
-        elevation: 0,
         selectedItemColor: const Color(0xFF1565C0),
         unselectedItemColor: Colors.grey,
         currentIndex: 1,
-        onTap: (index) {},
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        selectedIconTheme: const IconThemeData(size: 24),
+        unselectedIconTheme: const IconThemeData(size: 24),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            label: "Dashboard",
-          ),
+              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            label: "Scan",
-          ),
+              icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            label: "Reports",
-          ),
+              icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            label: "Settings",
-          ),
+              icon: Icon(Icons.settings_rounded), label: 'Settings'),
         ],
       ),
     );

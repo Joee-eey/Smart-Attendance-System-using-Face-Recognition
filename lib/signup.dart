@@ -17,6 +17,7 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _acceptedTerms = false;
 
   Future<void> registerUser(
     String username,
@@ -25,7 +26,7 @@ class _SignupPageState extends State<SignupPage> {
   ) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/signup');
-    // final url = Uri.parse('http://192.168.100.22:5001/signup');
+    //final url = Uri.parse('http://192.168.100.22:5001/signup');
 
     try {
       final response = await http.post(
@@ -118,7 +119,7 @@ class _SignupPageState extends State<SignupPage> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -191,14 +192,27 @@ class _SignupPageState extends State<SignupPage> {
                 ),
                 onPressed: _isLoading
                     ? null
-                    : () {
-                        setState(() => _isLoading = true);
-                        registerUser(
-                          _usernameController.text.trim(),
-                          _emailController.text.trim(),
-                          _passwordController.text.trim(),
-                        );
-                      },
+                    : !_acceptedTerms
+                        ? () {
+                            _showAnimatedDialog(
+                              context,
+                              icon: Icons.error_outline_rounded,
+                              iconColor: const Color(0xFFEA324C),
+                              title: "Terms Not Accepted",
+                              message:
+                                  "You must accept the Terms & Policy to continue.",
+                              buttonText: "OK",
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                          }
+                        : () {
+                            setState(() => _isLoading = true);
+                            registerUser(
+                              _usernameController.text.trim(),
+                              _emailController.text.trim(),
+                              _passwordController.text.trim(),
+                            );
+                          },
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
@@ -212,7 +226,84 @@ class _SignupPageState extends State<SignupPage> {
               ),
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
+
+            // Terms & Policy checkbox
+            Row(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    GestureDetector(
+      onTap: () {
+        setState(() {
+          _acceptedTerms = !_acceptedTerms;
+        });
+      },
+      child: Container(
+        width: 18,
+        height: 18,
+        decoration: BoxDecoration(
+          color: _acceptedTerms ? Colors.transparent : Colors.white,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: Color(0xB3000000),
+            width: 1,
+          ),
+        ),
+        child: _acceptedTerms
+            ? const Icon(Icons.check_rounded, size: 15, color: Color(0xFF1565C0))
+            : null,
+      ),
+    ),
+    const SizedBox(width: 10),
+    Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _acceptedTerms = !_acceptedTerms;
+          });
+        },
+        child: RichText(
+          textAlign: TextAlign.justify,
+          text: TextSpan(
+            style: const TextStyle(
+              color: Color(0xB3000000),
+              height: 18 / 14,
+              fontSize: 14,
+            ),
+            children: [
+              const TextSpan(
+                  text:
+                      'By creating an account, you are confirming that you have read and agree to our '),
+              TextSpan(
+                text: 'Terms of Use',
+                style: const TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+                // Add tap recognizer for external/internal navigation if needed
+              ),
+              const TextSpan(text: ' and '),
+              TextSpan(
+                text: 'Privacy Policy',
+                style: const TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+                // Add tap recognizer for external/internal navigation if needed
+              ),
+              const TextSpan(text: '.'),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ],
+),
+
+
+            const SizedBox(height: 16),
             Row(
               children: const [
                 Expanded(
@@ -261,7 +352,7 @@ class _SignupPageState extends State<SignupPage> {
               ),
             ),
 
-            const SizedBox(height: 85),
+            const SizedBox(height: 50),
 
             // Log in link
             Row(
@@ -331,7 +422,7 @@ class _SignupPageState extends State<SignupPage> {
                 scale: scale.value,
                 child: AlertDialog(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   contentPadding: const EdgeInsets.all(24),
                   content: Column(
