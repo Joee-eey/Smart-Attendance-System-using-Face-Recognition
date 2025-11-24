@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:developer';
+import 'package:userinterface/faceenroll.dart';
 
 class EnrollmentPage extends StatefulWidget {
   final String imagePath;
@@ -98,8 +99,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             message: "Student has been enrolled successfully.",
             buttonText: "Continue",
             onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // Close dialog
+              
+              // Force restart the Enrollment/Camera page
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const Enrollment()),
+              );
             },
           );
         }
@@ -311,6 +317,17 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          } else if (index == 1) {
+          // stay here
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/reports');
+          } else if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/settings');
+          }
+        },
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),

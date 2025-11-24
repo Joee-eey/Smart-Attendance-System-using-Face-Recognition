@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:userinterface/reports.dart';
-import 'package:userinterface/faceenroll.dart';
-import 'package:userinterface/settings.dart';
 import 'package:userinterface/attendance.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -58,8 +55,10 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() {
           folders = data
               .map((item) => Folder(
-                    item['name'],
-                    dateFormat.parse(item['created_at']),
+                    item['name'], 
+                    item['created_at'] != null
+                    ? dateFormat.parse(item['created_at'])
+                    : DateTime.now (),
                     id: item['id'],
                   ))
               .toList();
@@ -90,8 +89,10 @@ class _DashboardPageState extends State<DashboardPage> {
           folder.files = data
               .map((item) => FileItem(
                     item['id'],
-                    item['schedule'],
-                    dateFormat.parse(item['created_at']),
+                    item['schedule'] ?? 'No Name', 
+                    item['created_at'] != null 
+                        ? dateFormat.parse(item['created_at']) 
+                        : DateTime.now(),
                   ))
               .toList();
         });
@@ -101,6 +102,151 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (e, stackTrace) {
       log('Error fetching files', error: e, stackTrace: stackTrace);
+    }
+  }
+
+
+  // CREATE FOLDER IN DATABASE
+  Future<void> createFolder(String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects');
+
+    try {
+      // Print to console to check if it runs
+      log("Attempting to create folder: $name at $url");
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      // Print to console to check if it runs
+      log("Response status: ${response.statusCode}");   
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        log('Folder created successfully');
+        fetchFolders(); // Refresh the list from the database
+      } else {
+        log('Failed to create folder: ${response.body}');
+      }
+    } catch (e) {
+      log('Error creating folder', error: e);
+    }
+  }
+
+  // UPDATE FOLDER
+  Future<void> updateFolder(int id, String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects/$id'); // Call the PUT route
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      if (response.statusCode == 200) {
+        log('Folder updated successfully');
+        fetchFolders(); // Refresh UI
+      } else {
+        log('Failed to update folder: ${response.body}');
+      }
+    } catch (e) {
+      log('Error updating folder', error: e);
+    }
+  }
+
+// DELETE FOLDER
+  Future<void> deleteFolder(int id) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects/$id');
+
+    try {
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        log('Folder deleted successfully');
+        fetchFolders(); // Refresh list
+      } else {
+        log('Failed to delete folder: ${response.body}');
+      }
+    } catch (e) {
+      log('Error deleting folder', error: e);
+    }
+  }
+  // DELETE FOLDER
+
+
+
+  // CREATE FILE IN DATABASE
+  Future<void> createFile(int folderId, String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects/$folderId/files');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        log('File created successfully');
+        // Find the folder and refresh its files
+        final folderIndex = folders.indexWhere((f) => f.id == folderId);
+        if (folderIndex != -1) {
+          fetchFiles(folders[folderIndex]);
+        }
+      } else {
+        log('Failed to create file: ${response.body}');
+      }
+    } catch (e) {
+      log('Error creating file', error: e);
+    }
+  }
+
+  // UPDATE FILE
+  Future<void> updateFile(Folder folder, int fileId, String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    // Use the classes route we created in Python
+    final url = Uri.parse('$baseUrl/classes/$fileId'); 
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      if (response.statusCode == 200) {
+        log('File updated successfully');
+        // Refresh just this folder's files
+        fetchFiles(folder); 
+      } else {
+        log('Failed to update file: ${response.body}');
+      }
+    } catch (e) {
+      log('Error updating file', error: e);
+    }
+  }
+
+  // DELETE FILE
+  Future<void> deleteFile(Folder folder, int fileId) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/classes/$fileId');
+
+    try {
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        log('File deleted successfully');
+        fetchFiles(folder); // Refresh just this folder's files
+      } else {
+        log('Failed to delete file: ${response.body}');
+      }
+    } catch (e) {
+      log('Error deleting file', error: e);
     }
   }
 
@@ -199,17 +345,19 @@ class _DashboardPageState extends State<DashboardPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {
-                      setState(() {
+                    onPressed: () async { // Async for API call
+                      if (nameController.text.isNotEmpty) {
                         if (isEdit && folder != null) {
-                          folder.name = nameController.text;
-                          folder.date = DateTime.now();
+                          // Check ID to be safe
+                          if (folder.id != null) {
+                            await updateFolder(folder.id!, nameController.text);
+                          }
                         } else {
-                          folders
-                              .add(Folder(nameController.text, DateTime.now()));
+                          // Call API to create folder
+                          await createFolder(nameController.text);
                         }
-                      });
-                      Navigator.pop(context);
+                        if (mounted) Navigator.pop(context);
+                      }
                     },
                     child: Text(
                       isEdit ? "Confirm Changes" : "Create Folder",
@@ -292,17 +440,19 @@ class _DashboardPageState extends State<DashboardPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {
-                      setState(() {
+                    onPressed: () async {
+                      if (nameController.text.isNotEmpty) {
                         if (isEdit && file != null) {
-                          file.name = nameController.text;
-                          file.date = DateTime.now();
+                          // CALL UPDATE FILE FUNCTION
+                          await updateFile(folder, file.id, nameController.text);
                         } else {
-                          folder.files.add(
-                              FileItem(0, nameController.text, DateTime.now()));
+                          // CALL CREATE FILE FUNCTION
+                          if (folder.id != null) {
+                            await createFile(folder.id!, nameController.text);
+                          }
                         }
-                      });
-                      Navigator.pop(context);
+                        if (mounted) Navigator.pop(context);
+                      }
                     },
                     child: Text(
                       isEdit ? "Save Changes" : "Create File",
@@ -366,15 +516,19 @@ class _DashboardPageState extends State<DashboardPage> {
                             backgroundColor: const Color(0xFFF84F31),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8))),
-                        onPressed: () {
-                          setState(() {
-                            if (isFile && folder != null) {
-                              folder.files.remove(item);
-                            } else {
-                              folders.remove(item);
+                        onPressed: () async {
+                          if (isFile && folder != null) {
+                            // Cast item to FileItem to access ID
+                            FileItem file = item as FileItem;
+                            await deleteFile(folder, file.id);
+                          } else {
+                            // Cast item to Folder to access ID
+                            Folder fold = item as Folder;
+                            if (fold.id != null) {
+                              await deleteFolder(fold.id!);
                             }
-                          });
-                          Navigator.pop(context);
+                          }
+                          if (mounted) Navigator.pop(context);
                         },
                         child: const Text("Delete",
                             style: TextStyle(color: Colors.white)),
@@ -741,6 +895,21 @@ class _DashboardPageState extends State<DashboardPage> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
+          onTap: (index) {
+            if (index == 0) {
+              // Dashboard
+              Navigator.pushNamed(context, '/dashboard'); 
+            } else if (index == 1) {
+              // Enrollment
+              Navigator.pushNamed(context, '/enroll');
+            } else if (index == 2) {
+              // Reports
+              Navigator.pushNamed(context, '/reports');  
+            } else if (index == 3) {
+              // Settings
+              Navigator.pushNamed(context, '/settings'); 
+            }
+          },
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
@@ -751,26 +920,6 @@ class _DashboardPageState extends State<DashboardPage> {
           BottomNavigationBarItem(
               icon: Icon(Icons.settings_rounded), label: 'Settings'),
         ],
-        onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Enrollment()),
-            );
-          } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const AttendanceReportPage()),
-            );
-          } else if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const AccountSettingsPage()),
-            );
-          }
-        },
       ),
     );
   }

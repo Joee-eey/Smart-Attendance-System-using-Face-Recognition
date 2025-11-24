@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:userinterface/login.dart';
 
 // void main() {
 //   WidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +64,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
   }
 
+
+  // SIGN OUT FUNCTION
+  void _handleSignOut() {
+    // Here you can clear user session data (e.g., SharedPreferences) if you have any.
+    
+    // Navigate to Login Page and remove all previous routes
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()), 
+      (route) => false, // This ensures the user cannot go back to Settings
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -90,6 +104,17 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
           unselectedFontSize: 12,
           selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            } else if (index == 1) {
+              Navigator.pushReplacementNamed(context, '/enroll');
+            } else if (index == 2) {
+              Navigator.pushReplacementNamed(context, '/reports');
+            } else if (index == 3) {
+              // Already on Settings
+            }
+          },
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
@@ -343,7 +368,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {},
+                  // CONNECT THE SIGN OUT FUNCTION
+                  onPressed: _handleSignOut, 
                   child: const Text(
                     "Sign Out",
                     style: TextStyle(

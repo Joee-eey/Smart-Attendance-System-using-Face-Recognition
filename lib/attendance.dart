@@ -49,6 +49,7 @@ class _AttendanceState extends State<Attendance> {
         setState(() {
           attendanceList = data
               .map((e) => {
+                    'id': e['id'],
                     'name': e['name'] ?? 'Unknown',
                     'time': e['time'] ?? '--:-- --',
                     'status': e['status'] ?? 'Absent',
@@ -67,6 +68,44 @@ class _AttendanceState extends State<Attendance> {
       });
     }
   }
+
+
+  // DELETE Attendance FROM DATABASE
+  Future<void> deleteAttendance(int id) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      // Ensure your Python backend has the DELETE route for /attendance/<id>
+      final url = Uri.parse('$baseUrl/attendance/$id'); 
+
+      log("Attempting to delete ID: $id at $url"); // Debug log
+
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        log('Record deleted successfully from DB');
+        
+        // Update UI immediately
+        setState(() {
+          attendanceList.removeWhere((item) => item['id'] == id);
+        });
+        
+        // Update the Summary counts (Present/Absent numbers)
+        fetchSummary(widget.classId);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Record deleted successfully")),
+        );
+      } else {
+        log('Failed to delete record: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to delete record")),
+        );
+      }
+    } catch (e) {
+      log('Error deleting attendance', error: e);
+    }
+  }
+
 
   int presentCount = 0;
   int absentCount = 0;
@@ -156,9 +195,16 @@ class _AttendanceState extends State<Attendance> {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed: () {
-                          setState(() => attendanceList.remove(record));
-                          Navigator.pop(context);
+                        onPressed: () async {
+                          // Close dialog first
+                          Navigator.pop(context); 
+                          
+                          // Check if ID exists
+                          if (record['id'] != null) {
+                            await deleteAttendance(record['id']);
+                          } else {
+                            log("Error: Cannot delete, Record ID is missing");
+                          }
                         },
                         child: const Text(
                           "Delete",
@@ -471,6 +517,18 @@ class _AttendanceState extends State<Attendance> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushNamed(context, '/dashboard');
+            } else if (index == 1) {
+              // Assuming '/enroll' maps to your Attendance/Enrollment list page
+              Navigator.pushNamed(context, '/enroll'); 
+            } else if (index == 2) {
+              Navigator.pushNamed(context, '/reports');
+            } else if (index == 3) {
+              Navigator.pushNamed(context, '/settings');
+            }
+          },
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),

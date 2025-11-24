@@ -99,6 +99,103 @@ class _ScanAttendanceState extends State<ScanAttendance> {
     await _initializeCamera(cameras![currentCameraIndex]);
   }
 
+
+  // CAPTURE IMAGE & RECOGNIZE
+  Future<void> _captureAndRecognize() async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+
+    if (_controller!.value.isTakingPicture) {
+      // A capture is already pending, do nothing.
+      return;
+    }
+
+    try {
+      // Take the picture
+      final XFile image = await _controller!.takePicture();
+
+      // Show loading indicator
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF1565C0)),
+        ),
+      );
+
+      // Send to API
+      await _processImage(image.path);
+
+    } catch (e) {
+      debugPrint("Error capturing image: $e");
+    }
+  }
+
+  // Helper function to process image (used by both Camera and Gallery)
+  Future<void> _processImage(String imagePath) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final uri = Uri.parse('$baseUrl/recognize');
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      request.fields['class_id'] = widget.classId.toString();
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(responseBody) as List;
+
+        if (!mounted) return;
+
+        final recognizedCount = result.where((r) => r["name"] != null).length;
+
+        _showAnimatedDialog(
+          context: context,
+          icon: Icons.check_circle_outline,
+          iconColor: Colors.green,
+          title: "Success",
+          message: "$recognizedCount students recognized successfully.",
+          buttonText: "OK",
+          onPressed: () {
+            Navigator.of(context).pop();
+            // Go back to Attendance page to see updates
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => Attendance(classId: widget.classId)),
+            );
+          },
+        );
+      } else {
+        _showAnimatedDialog(
+          context: context,
+          icon: Icons.error_outline,
+          iconColor: Colors.red,
+          title: "Error",
+          message: "Recognition failed: $responseBody",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop(); // Close loading
+      if (!mounted) return;
+      _showAnimatedDialog(
+        context: context,
+        icon: Icons.error_outline,
+        iconColor: Colors.red,
+        title: "Error",
+        message: "Something went wrong: $e",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+    }
+  }
+
   Future<void> _pickImageFromGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image == null) return;
@@ -252,7 +349,18 @@ class _ScanAttendanceState extends State<ScanAttendance> {
           unselectedFontSize: 12,
           selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
-          onTap: (index) {},
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushNamed(context, '/dashboard');
+            } else if (index == 1) {
+              // Assuming '/enroll' maps to your Attendance/Enrollment list page
+              Navigator.pushNamed(context, '/enroll'); 
+            } else if (index == 2) {
+              Navigator.pushNamed(context, '/reports');
+            } else if (index == 3) {
+              Navigator.pushNamed(context, '/settings');
+            }
+          },
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.dashboard), label: 'Dashboard'),
@@ -393,30 +501,36 @@ class _ScanAttendanceState extends State<ScanAttendance> {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // CAMERA SHUTTER BUTTON
                 Positioned(
                   bottom: 30,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 65,
-                        height: 65,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
+                  child: GestureDetector(
+                    onTap: _captureAndRecognize, // Call the capture function here
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                          ),
                         ),
-                      ),
-                      Container(
-                        width: 55,
-                        height: 55,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
+                        Container(
+                          width: 55,
+                          height: 55,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
+
+                
                 // ✅ New gallery button (left)
                 Positioned(
                   left: 40,

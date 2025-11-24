@@ -326,6 +326,17 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
           unselectedFontSize: 12,
           selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            } else if (index == 1) {
+              Navigator.pushReplacementNamed(context, '/enroll');
+            } else if (index == 2) {
+              // Already on Reports
+            } else if (index == 3) {
+              Navigator.pushReplacementNamed(context, '/settings');
+            }
+          },
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
