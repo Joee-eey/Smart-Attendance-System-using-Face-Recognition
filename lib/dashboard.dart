@@ -93,6 +93,10 @@ class _DashboardPageState extends State<DashboardPage> {
                     item['created_at'] != null 
                         ? dateFormat.parse(item['created_at']) 
                         : DateTime.now(),
+                    item['schedule'] ?? 'No Name', 
+                    item['created_at'] != null 
+                        ? dateFormat.parse(item['created_at']) 
+                        : DateTime.now(),
                   ))
               .toList();
         });
@@ -340,6 +344,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         }
                         if (mounted) Navigator.pop(context);
                       }
+                        if (mounted) Navigator.pop(context);
+                      }
                     },
 
                     child: Text(
@@ -508,6 +514,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             if (fold.id != null) {
                               await deleteFolder(fold.id!);
                             }
+                          }
+                          if (mounted) Navigator.pop(context);
                           }
                           if (mounted) Navigator.pop(context);
                         },

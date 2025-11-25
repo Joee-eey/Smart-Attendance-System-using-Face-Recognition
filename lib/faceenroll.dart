@@ -150,6 +150,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
+  // CONFIRM IMAGE FUNCTION
   void _confirmImage() async {
     if (_capturedImage == null) return;
 
@@ -251,6 +252,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // CLOSE BUTTON
             GestureDetector(
               onTap: () {
                 Navigator.pushAndRemoveUntil(

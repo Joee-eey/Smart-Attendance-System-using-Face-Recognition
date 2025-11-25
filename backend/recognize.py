@@ -156,7 +156,8 @@ def recognize_face():
                 cursor.execute("""
                     INSERT INTO attendance (class_id, student_id, date, status)
                     VALUES (%s, %s, %s, %s)
-                """, (1, student["id"], date.today(), "present"))
+                """, (class_id, student["id"], date.today(), "present"))
+
                 conn.commit()
                 results_list.append({
                     "name": student["name"],

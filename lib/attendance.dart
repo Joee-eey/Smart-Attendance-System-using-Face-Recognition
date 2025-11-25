@@ -71,36 +71,6 @@ class _AttendanceState extends State<Attendance> {
     }
   }
 
-  Future<void> deleteAttendance(int id) async {
-    try {
-      final baseUrl = dotenv.env['BASE_URL']!;
-      final url = Uri.parse('$baseUrl/attendance/$id'); 
-      log("Attempting to delete ID: $id at $url"); // Debug log
-      final response = await http.delete(url);
-      
-      if (response.statusCode == 200) {
-        log('Record deleted successfully from DB');
-        
-        setState(() {
-          attendanceList.removeWhere((item) => item['id'] == id);
-        });
-        
-        fetchSummary(widget.classId);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Record deleted successfully")),
-        );
-      } else {
-        log('Failed to delete record: ${response.body}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to delete record")),
-        );
-      }
-    } catch (e) {
-      log('Error deleting attendance', error: e);
-    }
-  }
-
   int presentCount = 0;
   int absentCount = 0;
 
@@ -132,6 +102,81 @@ class _AttendanceState extends State<Attendance> {
         absentCount = 0;
       });
     }
+  }
+
+  void _showDeleteDialog(Map<String, dynamic> record) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          insetPadding: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.delete_forever_rounded,
+                    color: Color(0xFFF84F31), size: 48),
+                const SizedBox(height: 12),
+                const Text(
+                  "Are you sure?",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Do you really want to delete this record?\nThis process cannot be undone.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF6F6F6),
+                          side: const BorderSide(color: Color(0xFFF6F6F6)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          "Cancel",
+                          style: TextStyle(
+                              color: Colors.grey, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF84F31),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          setState(() => attendanceList.remove(record));
+                          Navigator.pop(context);
+                        },
+                        child: const Text(
+                          "Delete",
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -527,19 +572,6 @@ class _AttendanceState extends State<Attendance> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
-
-          onTap: (index) {
-            if (index == 0) {
-              Navigator.pushNamed(context, '/dashboard');
-            } else if (index == 1) {
-              Navigator.pushNamed(context, '/enroll'); 
-            } else if (index == 2) {
-              Navigator.pushNamed(context, '/reports');
-            } else if (index == 3) {
-              Navigator.pushNamed(context, '/settings');
-            }
-          },
-
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),

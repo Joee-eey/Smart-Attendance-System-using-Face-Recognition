@@ -40,6 +40,7 @@ def get_attendance():
         cursor.execute("""
             SELECT 
                 a.id,
+                a.id,
                 s.name,
                 s.student_card_id,
                 s.course,
