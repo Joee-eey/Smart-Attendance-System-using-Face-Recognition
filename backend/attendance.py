@@ -39,7 +39,10 @@ def get_attendance():
         # Fetch students with their attendance (if any) for today
         cursor.execute("""
             SELECT 
+                a.id,
                 s.name,
+                s.student_card_id,
+                s.course,
                 DATE_FORMAT(a.created_at, '%h:%i %p') AS time,
                 a.date,
                 COALESCE(a.status, 'Absent') AS status
@@ -125,5 +128,35 @@ def get_attendance_summary():
 
     finally:
         if 'conn' in locals() and conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+
+
+
+# ⭐⭐⭐ NEW ROUTE: DELETE ATTENDANCE RECORD ⭐⭐⭐
+@attendance_bp.route('/attendance/<int:attendance_id>', methods=['DELETE'])
+def delete_attendance(attendance_id):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Delete the record from the 'attendance' table
+        # (Assuming your table is named 'attendance')
+        cursor.execute("DELETE FROM attendance WHERE id = %s", (attendance_id,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({'message': 'Record not found'}), 404
+
+        return jsonify({'message': 'Attendance record deleted successfully'}), 200
+
+    except Exception as e:
+        print(f"Error deleting attendance: {e}")
+        return jsonify({'message': str(e)}), 500
+    finally:
+        if conn and conn.is_connected():
             cursor.close()
             conn.close()

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:userinterface/login.dart';
 import 'package:userinterface/signup.dart';
+import 'package:userinterface/faceenroll.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:userinterface/dashboard.dart';
+import 'package:userinterface/reports.dart';
+import 'package:userinterface/settings.dart';
 
-// void main() {
-//   runApp(const SmartAttendanceApp());
-// }
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -26,6 +27,12 @@ class SmartAttendanceApp extends StatelessWidget {
         fontFamily: 'Inter',
         scaffoldBackgroundColor: const Color(0xFFFFFFFF),
       ),
+       routes: {
+        '/dashboard': (context) => const DashboardPage(),  
+        '/enroll': (context) => const Enrollment(),
+        '/reports': (context) => const AttendanceReportPage(),      
+        '/settings': (context) => const AccountSettingsPage(),  
+      },
       home: const HomePage(),
     );
   }

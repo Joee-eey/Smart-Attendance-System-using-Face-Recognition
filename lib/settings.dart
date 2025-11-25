@@ -1,28 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-// void main() {
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   runApp(const MyApp());
-// }
-
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return MaterialApp(
-//       title: 'Account Settings',
-//       debugShowCheckedModeBanner: false,
-//       theme: ThemeData(
-//         primarySwatch: Colors.blue,
-//         scaffoldBackgroundColor: Colors.white,
-//       ),
-//       home: const AccountSettingsPage(),
-//     );
-//   }
-// }
+import 'package:userinterface/login.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -63,6 +41,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
   }
 
+  void _handleSignOut() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()), 
+      (route) => false, 
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -90,6 +76,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
           unselectedFontSize: 12,
           selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
+
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            } else if (index == 1) {
+              Navigator.pushReplacementNamed(context, '/enroll');
+            } else if (index == 2) {
+              Navigator.pushReplacementNamed(context, '/reports');
+            } else if (index == 3) {
+              // Stay on Settings
+            }
+          },
+
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
@@ -343,7 +342,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {},
+                  
+                  onPressed: _handleSignOut, 
+                  
                   child: const Text(
                     "Sign Out",
                     style: TextStyle(
