@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:developer';
+import 'package:userinterface/faceenroll.dart';
 
 class EnrollmentPage extends StatefulWidget {
   final String imagePath;
@@ -56,7 +57,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         log("Failed to fetch subjects: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      // log full error details
       log("Error fetching subjects", error: e, stackTrace: stackTrace);
     }
   }
@@ -65,9 +65,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   Future<void> enrollStudent() async {
     try {
       if (selectedSubjectId == null) return;
-
-      _showLoadingDialog(context); // show loading
-
+      _showLoadingDialog(context); 
       final baseUrl = dotenv.env['BASE_URL']!;
       var uri = Uri.parse('$baseUrl/enroll');
       var request = http.MultipartRequest("POST", uri);
@@ -86,7 +84,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
       if (mounted) {
         _hideLoadingDialog(context);
-      } // hide loading
+      } 
 
       if (responseBody.statusCode == 201 || responseBody.statusCode == 200) {
         if (mounted) {
@@ -98,13 +96,15 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             message: "Student has been enrolled successfully.",
             buttonText: "Continue",
             onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(); 
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const Enrollment()),
+              );
             },
           );
         }
       } else {
-        // show error
         if (mounted) {
           _showAnimatedDialog(
             context: context,
@@ -122,7 +122,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     } catch (e, stackTrace) {
       if (mounted) {
         _hideLoadingDialog(context);
-      } // hide loading if error
+      } 
       log("Error enrolling student", error: e, stackTrace: stackTrace);
     }
   }
@@ -174,7 +174,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   void _showLoadingDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierDismissible: false, // prevent dismiss
+      barrierDismissible: false, 
       builder: (_) => const Center(
         child: CircularProgressIndicator(),
       ),
@@ -182,7 +182,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   void _hideLoadingDialog(BuildContext context) {
-    Navigator.of(context).pop(); // close the dialog
+    Navigator.of(context).pop();
   }
 
   @override
@@ -311,6 +311,17 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          } else if (index == 1) {
+          // Stay on Enrollment
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/reports');
+          } else if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/settings');
+          }
+        },
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
@@ -325,7 +336,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     );
   }
 
-  // TextField Builder
   Widget _buildTextField(String hint, TextEditingController controller) {
     return TextField(
       controller: controller,

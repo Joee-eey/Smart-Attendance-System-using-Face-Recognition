@@ -24,6 +24,9 @@ dependencies:
   fl_chart: ^0.66.0
   google_sign_in: ^6.2.1
   provider: ^6.1.2
+  pdf: ^3.10.0
+  printing: ^5.11.0
+
  
 dev_dependencies:
   flutter_test:
@@ -35,8 +38,3 @@ flutter:
   assets:
   - assets/images/
   - .env
-
-
-
-
-

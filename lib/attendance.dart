@@ -49,7 +49,10 @@ class _AttendanceState extends State<Attendance> {
         setState(() {
           attendanceList = data
               .map((e) => {
+                    'id': e['id'],
                     'name': e['name'] ?? 'Unknown',
+                    'student_card_id': e['student_card_id'] ?? '--',
+                    'course': e['course'] ?? '--',
                     'time': e['time'] ?? '--:-- --',
                     'status': e['status'] ?? 'Absent',
                     'date': e['date'] ?? '',
@@ -68,6 +71,36 @@ class _AttendanceState extends State<Attendance> {
     }
   }
 
+  Future<void> deleteAttendance(int id) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final url = Uri.parse('$baseUrl/attendance/$id'); 
+      log("Attempting to delete ID: $id at $url"); // Debug log
+      final response = await http.delete(url);
+      
+      if (response.statusCode == 200) {
+        log('Record deleted successfully from DB');
+        
+        setState(() {
+          attendanceList.removeWhere((item) => item['id'] == id);
+        });
+        
+        fetchSummary(widget.classId);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Record deleted successfully")),
+        );
+      } else {
+        log('Failed to delete record: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to delete record")),
+        );
+      }
+    } catch (e) {
+      log('Error deleting attendance', error: e);
+    }
+  }
+
   int presentCount = 0;
   int absentCount = 0;
 
@@ -79,7 +112,6 @@ class _AttendanceState extends State<Attendance> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // Log the data fetched from backend
         log("Fetched summary data: $data");
 
         setState(() {
@@ -100,81 +132,6 @@ class _AttendanceState extends State<Attendance> {
         absentCount = 0;
       });
     }
-  }
-
-  void _showDeleteDialog(Map<String, dynamic> record) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          insetPadding: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.delete_forever_rounded,
-                    color: Color(0xFFF84F31), size: 48),
-                const SizedBox(height: 12),
-                const Text(
-                  "Are you sure?",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "Do you really want to delete this record?\nThis process cannot be undone.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF6F6F6),
-                          side: const BorderSide(color: Color(0xFFF6F6F6)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          "Cancel",
-                          style: TextStyle(
-                              color: Colors.grey, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF84F31),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () {
-                          setState(() => attendanceList.remove(record));
-                          Navigator.pop(context);
-                        },
-                        child: const Text(
-                          "Delete",
-                          style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    )
-                  ],
-                )
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -201,225 +158,324 @@ class _AttendanceState extends State<Attendance> {
         ),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  TextField(
-                    style: const TextStyle(
-                      color: Color(0xFF000000),
+    ? const Center(child: CircularProgressIndicator())
+    : Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            
+            // Search Bar
+            TextField(
+              style: const TextStyle(
+                color: Color(0xFF000000),
+              ),
+              decoration: InputDecoration(
+                hintText: "Search",
+                hintStyle: const TextStyle(
+                  color: Color(0xFF9E9E9E),
+                ),
+                suffixIcon:
+                    const Icon(Icons.search, color: Color(0x4D000000)),
+                contentPadding:
+                    const EdgeInsets.only(left: 10, top: 12, bottom: 12),
+                filled: true,
+                fillColor: const Color(0xFFF6F6F6),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0x1A000000),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFF6F6F6),
+                    width: 1,
+                  ),
+                ),
+              ),
+              cursorColor: Colors.black,
+            ),
+            
+            const SizedBox(height: 15),
+            
+            // Summary
+            const Text(
+              "Today's Summary",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 70,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    decoration: InputDecoration(
-                      hintText: "Search",
-                      hintStyle: const TextStyle(
-                        color: Color(0xFF9E9E9E),
-                      ),
-                      suffixIcon:
-                          const Icon(Icons.search, color: Color(0x4D000000)),
-                      contentPadding:
-                          const EdgeInsets.only(left: 10, top: 12, bottom: 12),
-                      filled: true,
-                      fillColor: const Color(0xFFF6F6F6),
-                      enabledBorder: OutlineInputBorder(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$presentCount',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const Text('Present',
+                            style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    height: 70,
+                    margin: const EdgeInsets.only(left: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$absentCount',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const Text('Absent',
+                            style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 15),
+            
+            // Recent Scans Label
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Recent Scans",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 5),
+            
+            // Scrollable Recent Scans List
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 43), 
+                itemCount: attendanceList.length,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemBuilder: (context, index) {
+                  final record = attendanceList[index];
+                  return Dismissible(
+                    key: Key(record['id'].toString()),
+                    background: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF84F31),
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0x1A000000),
-                          width: 1,
-                        ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFF6F6F6),
-                          width: 1,
-                        ),
-                      ),
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      height: 60,
+                      child: const Icon(Icons.delete, color: Colors.white, size: 24),
                     ),
-                    cursorColor: Colors.black,
-                  ),
-                  const SizedBox(height: 15),
-                  const Text(
-                    "Today's Summary",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 70,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.2),
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '$presentCount',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              const Text('Present',
-                                  style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          height: 70,
-                          margin: const EdgeInsets.only(left: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.2),
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '$absentCount',
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const Text('Absent',
-                                  style: TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Recent Scans",
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: attendanceList.length,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        final record = attendanceList[index];
-                        return Dismissible(
-                          key: Key(record['name']),
-                          background: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF84F31),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            height: 60,
-                            child: const Icon(Icons.delete,
-                                color: Color(0xFFFFFFFF), size: 24),
-                          ),
-                          direction: DismissDirection.endToStart,
-                          confirmDismiss: (direction) async {
-                            if (direction == DismissDirection.endToStart) {
-                              _showDeleteDialog(record);
-                              return false;
-                            }
-                            return false;
-                          },
-                          child: Container(
-                            height: 60,
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF7F8FA),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.account_circle_rounded,
-                                    size: 40, color: Color(0xFF9E9E9E)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                    direction: DismissDirection.endToStart,
+                    confirmDismiss: (direction) async {
+                      if (direction == DismissDirection.endToStart) {
+                        bool confirmed = await showDialog(
+                          context: context,
+                          builder: (_) => Dialog(
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                            insetPadding: const EdgeInsets.all(24),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.delete_forever_rounded,
+                                      color: Color(0xFFF84F31), size: 48),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    "Are you sure?",
+                                    style: TextStyle(
+                                        fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    "Do you really want to delete this record?\nThis process cannot be undone.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Row(
                                     children: [
-                                      Text(
-                                        record['name'],
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 15,
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          style: OutlinedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFF6F6F6),
+                                            side: const BorderSide(color: Color(0xFFF6F6F6)),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            "Cancel",
+                                            style: TextStyle(
+                                                color: Colors.grey,
+                                                fontWeight: FontWeight.w600),
+                                          ),
                                         ),
                                       ),
-                                      Text(
-                                        record['time'],
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFF84F31),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text(
+                                            "Delete",
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600),
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+
+                        if (confirmed == true && record['id'] != null) {
+                          setState(() {
+                            attendanceList.removeAt(index);
+                          });
+                          await deleteAttendance(record['id']);
+                        }
+                        return false;
+                      }
+                      return false;
+                    },
+                    child: Container(
+                      height: 78,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7F8FA),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.account_circle_rounded,
+                              size: 50, color: Color(0xFF9E9E9E)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  record['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
                                 ),
                                 Text(
-                                  (record['status'] != null)
-                                      ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
-                                      : 'Unknown',
-                                  style: TextStyle(
-                                    color: (record['status']
-                                                ?.toString()
-                                                .toLowerCase() ==
-                                            'present')
-                                        ? const Color(0xFF00B38A)
-                                        : const Color(0xFFEA324C),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
+                                  record['student_card_id']?.toString() ?? '--',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w300,
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                Text(
+                                  record['course']?.toString() ?? '--',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w300,
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                Text(
+                                  record['time'],
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0XCC000000),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        );
-                      },
+                          Text(
+                            (record['status'] != null)
+                                ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
+                                : 'Unknown',
+                            style: TextStyle(
+                              color: (record['status']?.toString().toLowerCase() == 'present')
+                                  ? const Color(0xFF00B38A)
+                                  : const Color(0xFFEA324C),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
+          ],
+        ),
+      ),
+
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 70),
@@ -471,6 +527,19 @@ class _AttendanceState extends State<Attendance> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
+
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushNamed(context, '/dashboard');
+            } else if (index == 1) {
+              Navigator.pushNamed(context, '/enroll'); 
+            } else if (index == 2) {
+              Navigator.pushNamed(context, '/reports');
+            } else if (index == 3) {
+              Navigator.pushNamed(context, '/settings');
+            }
+          },
+
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),

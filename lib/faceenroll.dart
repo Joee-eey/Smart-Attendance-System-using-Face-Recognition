@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:userinterface/faceenroll2.dart';
+import 'package:userinterface/dashboard.dart';
 
 class Enrollment extends StatefulWidget {
   const Enrollment({super.key});
@@ -149,6 +150,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
+  // CONFIRM IMAGE FUNCTION
   void _confirmImage() async {
     if (_capturedImage == null) return;
 
@@ -157,7 +159,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     if (!mounted) return;
 
-    Navigator.push(
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => EnrollmentPage(imagePath: _capturedImage!.path),
@@ -205,6 +207,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
+
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          } else if (index == 1) {
+            // Stay on Enrollment
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, '/reports');
+          } else if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/settings');
+          }
+        },
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
@@ -238,8 +252,15 @@ class _ScannerScreenState extends State<ScannerScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // CLOSE BUTTON
             GestureDetector(
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DashboardPage()),
+                  (route) => false, 
+                );
+              },
               child: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
             ),
             Row(

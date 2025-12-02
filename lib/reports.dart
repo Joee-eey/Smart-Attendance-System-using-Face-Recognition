@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart'; // For date formatting
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 void main() {
   runApp(const MyApp());
@@ -60,6 +63,107 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
     }
   }
 
+  Future<void> _generatePdf() async {
+    if (selectedGroup == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a Group to export.")),
+      );
+      return;
+    }
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Text("Attendance Report",
+                  style: pw.TextStyle(
+                      fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Divider(),
+              pw.SizedBox(height: 20),
+
+              // Filter Details
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("Date: $selectedRange",
+                      style: const pw.TextStyle(fontSize: 16)),
+                  pw.Text("Group: $selectedGroup",
+                      style: const pw.TextStyle(fontSize: 16)),
+                ],
+              ),
+              pw.SizedBox(height: 30),
+
+              // Summary Boxes (Replicated layout for PDF)
+              pw.Row(
+                children: [
+                  _buildPdfSummaryCard("Total Present", "1250"),
+                  pw.SizedBox(width: 20),
+                  _buildPdfSummaryCard("Avg. Rate", "85%"),
+                ],
+              ),
+              pw.SizedBox(height: 30),
+
+              // Example Table Data
+              pw.Text("Student Details",
+                  style: pw.TextStyle(
+                      fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 10),
+              pw.TableHelper.fromTextArray(
+                headers: ['Student Name', 'Status', 'Time In'],
+                data: [
+                  ['Ali bin Abu', 'Present', '07:45 AM'],
+                  ['Sarah Lee', 'Present', '07:50 AM'],
+                  ['Kenji Tan', 'Absent', '-'],
+                  ['Mutu Sami', 'Present', '08:01 AM'],
+                ],
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColors.grey300,
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+              ),
+              
+              pw.Spacer(),
+              pw.Text("Generated on ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}", 
+                style: const pw.TextStyle(color: PdfColors.grey, fontSize: 10)),
+            ],
+          );
+        },
+      ),
+    );
+
+    // Open the Print/Share Dialog
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
+  // Helper widget for PDF layout
+  pw.Widget _buildPdfSummaryCard(String title, String value) {
+    return pw.Expanded(
+      child: pw.Container(
+        padding: const pw.EdgeInsets.all(15),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey100,
+          borderRadius: pw.BorderRadius.circular(8),
+        ),
+        child: pw.Column(
+          children: [
+            pw.Text(title, style: const pw.TextStyle(fontSize: 12, color: PdfColors.blue900)),
+            pw.SizedBox(height: 5),
+            pw.Text(value, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -72,19 +176,16 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFFFFFFF),
-
-        // ✅ Shorter AppBar
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(20), // 👈 shorter height
+          preferredSize: const Size.fromHeight(20), 
           child: AppBar(
+            automaticallyImplyLeading: false,
             backgroundColor: const Color(0xFFFFFFFF),
             elevation: 0,
             centerTitle: false,
             iconTheme: const IconThemeData(color: Colors.black),
           ),
         ),
-
-        // ✅ Scrollable body (unchanged)
         body: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
@@ -99,8 +200,8 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildSummaryCard("Total Present", "1250"),
-                  _buildSummaryCard("Avg. Rate", "85%", isRate: true),
+                  _buildSummaryCard("Total Present", "----"),
+                  _buildSummaryCard("Avg. Rate", "--.--%", isRate: true),
                 ],
               ),
 
@@ -134,12 +235,12 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              "92%",
+                              "--%",
                               style: TextStyle(
                                   fontSize: 24, fontWeight: FontWeight.bold),
                             ),
                             Text(
-                              "Last 7 days",
+                              "Last - days",
                               style: TextStyle(
                                   fontSize: 13, color: Color(0x80000000)),
                             ),
@@ -155,7 +256,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                             ),
                             SizedBox(width: 2),
                             Text(
-                              "+2%",
+                              "-- %",
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF00B38A),
@@ -207,13 +308,13 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                           lineBarsData: [
                             LineChartBarData(
                               spots: const [
-                                FlSpot(0, 5),
-                                FlSpot(1, 6),
-                                FlSpot(2, 5.5),
-                                FlSpot(3, 7),
-                                FlSpot(4, 8),
-                                FlSpot(5, 6),
-                                FlSpot(6, 7.5),
+                                FlSpot(0, 0),
+                                FlSpot(1, 0),
+                                FlSpot(2, 0),
+                                FlSpot(3, 0),
+                                FlSpot(4, 0),
+                                FlSpot(5, 0),
+                                FlSpot(6, 0),
                               ],
                               isCurved: true,
                               color: const Color(0xFF1565C0),
@@ -308,14 +409,13 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: _generatePdf,
                 ),
               ),
             ],
           ),
         ),
 
-        // ✅ Bottom navigation bar remains unchanged
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
@@ -326,6 +426,19 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
           unselectedFontSize: 12,
           selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
+
+          onTap: (index) {
+            if (index == 0) {
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            } else if (index == 1) {
+              Navigator.pushReplacementNamed(context, '/enroll');
+            } else if (index == 2) {
+              // Stay on Reports
+            } else if (index == 3) {
+              Navigator.pushReplacementNamed(context, '/settings');
+            }
+          },
+
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),

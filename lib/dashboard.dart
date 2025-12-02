@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:userinterface/reports.dart';
-import 'package:userinterface/faceenroll.dart';
-import 'package:userinterface/settings.dart';
 import 'package:userinterface/attendance.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -60,7 +57,9 @@ class _DashboardPageState extends State<DashboardPage> {
           folders = data
               .map((item) => Folder(
                     item['name'],
-                    dateFormat.parse(item['created_at']),
+                    item['created_at'] != null
+                    ? dateFormat.parse(item['created_at'])
+                    : DateTime.now (),
                     id: item['id'],
                   ))
               .toList();
@@ -80,7 +79,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> fetchFiles(Folder folder) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse(
-        '$baseUrl/subjects/${folder.id}/files'); // your API to get files
+        '$baseUrl/subjects/${folder.id}/files'); 
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     try {
@@ -91,8 +90,10 @@ class _DashboardPageState extends State<DashboardPage> {
           folder.files = data
               .map((item) => FileItem(
                     item['id'],
-                    item['schedule'],
-                    dateFormat.parse(item['created_at']),
+                    item['schedule'] ?? 'No Name', 
+                    item['created_at'] != null 
+                        ? dateFormat.parse(item['created_at']) 
+                        : DateTime.now(),
                   ))
               .toList();
         });
@@ -102,6 +103,134 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (e, stackTrace) {
       log('Error fetching files', error: e, stackTrace: stackTrace);
+    }
+  }
+
+  Future<void> createFolder(String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects');
+
+    try {
+      log("Attempting to create folder: $name at $url");
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+      log("Response status: ${response.statusCode}");      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        log('Folder created successfully');
+        fetchFolders(); 
+      } else {
+        log('Failed to create folder: ${response.body}');
+      }
+    } catch (e) {
+      log('Error creating folder', error: e);
+    }
+  }
+
+  Future<void> updateFolder(int id, String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects/$id'); 
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      if (response.statusCode == 200) {
+        log('Folder updated successfully');
+        fetchFolders(); 
+      } else {
+        log('Failed to update folder: ${response.body}');
+      }
+    } catch (e) {
+      log('Error updating folder', error: e);
+    }
+  }
+
+  Future<void> deleteFolder(int id) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects/$id');
+
+    try {
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        log('Folder deleted successfully');
+        fetchFolders(); 
+      } else {
+        log('Failed to delete folder: ${response.body}');
+      }
+    } catch (e) {
+      log('Error deleting folder', error: e);
+    }
+  }
+
+  Future<void> createFile(int folderId, String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/subjects/$folderId/files');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        log('File created successfully');
+        final folderIndex = folders.indexWhere((f) => f.id == folderId);
+        if (folderIndex != -1) {
+          fetchFiles(folders[folderIndex]);
+        }
+      } else {
+        log('Failed to create file: ${response.body}');
+      }
+    } catch (e) {
+      log('Error creating file', error: e);
+    }
+  }
+
+  Future<void> updateFile(Folder folder, int fileId, String name) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/classes/$fileId'); 
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"name": name}),
+      );
+
+      if (response.statusCode == 200) {
+        log('File updated successfully');
+        fetchFiles(folder); 
+      } else {
+        log('Failed to update file: ${response.body}');
+      }
+    } catch (e) {
+      log('Error updating file', error: e);
+    }
+  }
+
+  Future<void> deleteFile(Folder folder, int fileId) async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/classes/$fileId');
+
+    try {
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        log('File deleted successfully');
+        fetchFiles(folder); 
+      } else {
+        log('Failed to delete file: ${response.body}');
+      }
+    } catch (e) {
+      log('Error deleting file', error: e);
     }
   }
 
@@ -200,18 +329,20 @@ class _DashboardPageState extends State<DashboardPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {
-                      setState(() {
+
+                    onPressed: () async { 
+                      if (nameController.text.isNotEmpty) {
                         if (isEdit && folder != null) {
-                          folder.name = nameController.text;
-                          folder.date = DateTime.now();
+                          if (folder.id != null) {
+                            await updateFolder(folder.id!, nameController.text);
+                          }
                         } else {
-                          folders
-                              .add(Folder(nameController.text, DateTime.now()));
+                          await createFolder(nameController.text);
                         }
-                      });
-                      Navigator.pop(context);
+                        if (mounted) Navigator.pop(context);
+                      }
                     },
+
                     child: Text(
                       isEdit ? "Confirm Changes" : "Create Folder",
                       style: const TextStyle(
@@ -293,18 +424,20 @@ class _DashboardPageState extends State<DashboardPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {
-                      setState(() {
+
+                    onPressed: () async {
+                      if (nameController.text.isNotEmpty) {
                         if (isEdit && file != null) {
-                          file.name = nameController.text;
-                          file.date = DateTime.now();
+                          await updateFile(folder, file.id, nameController.text);
                         } else {
-                          folder.files.add(
-                              FileItem(0, nameController.text, DateTime.now()));
+                          if (folder.id != null) {
+                            await createFile(folder.id!, nameController.text);
+                          }
                         }
-                      });
-                      Navigator.pop(context);
+                        if (mounted) Navigator.pop(context);
+                      }
                     },
+
                     child: Text(
                       isEdit ? "Save Changes" : "Create File",
                       style: const TextStyle(
@@ -367,15 +500,17 @@ class _DashboardPageState extends State<DashboardPage> {
                             backgroundColor: const Color(0xFFF84F31),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8))),
-                        onPressed: () {
-                          setState(() {
-                            if (isFile && folder != null) {
-                              folder.files.remove(item);
-                            } else {
-                              folders.remove(item);
+                        onPressed: () async {
+                          if (isFile && folder != null) {
+                            FileItem file = item as FileItem;
+                            await deleteFile(folder, file.id);
+                          } else {
+                            Folder fold = item as Folder;
+                            if (fold.id != null) {
+                              await deleteFolder(fold.id!);
                             }
-                          });
-                          Navigator.pop(context);
+                          }
+                          if (mounted) Navigator.pop(context);
                         },
                         child: const Text("Delete",
                             style: TextStyle(color: Colors.white)),
@@ -392,21 +527,26 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.white,
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark,
-    ));
+Widget build(BuildContext context) {
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    systemNavigationBarColor: Colors.white,
+    statusBarColor: Colors.white,
+    statusBarIconBrightness: Brightness.dark,
+  ));
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-      ),
-      body: Padding(
+  return Scaffold(
+    appBar: AppBar(
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      elevation: 0,
+      backgroundColor: Colors.white,
+    ),
+    body: GestureDetector(
+      behavior: HitTestBehavior.opaque, // Makes entire body tappable
+      onTap: () {
+        FocusScope.of(context).unfocus(); // Close keyboard
+      },
+      child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -442,12 +582,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView.builder(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: folders.length + 1,
                       itemBuilder: (context, index) {
                         if (index == folders.length) {
                           return Center(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16),
                               child: Material(
                                 color: const Color(0xFF1565C0),
                                 shape: const CircleBorder(),
@@ -579,8 +722,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                               MaterialPageRoute(
                                                 builder: (context) =>
                                                     Attendance(
-                                                  classId: file
-                                                      .id, // pass the file ID
+                                                  classId: file.id,
                                                 ),
                                               ),
                                             );
@@ -654,8 +796,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                                       child: Row(
                                                         children: const [
                                                           Icon(
-                                                              Icons
-                                                                  .edit_rounded,
+                                                              Icons.edit_rounded,
                                                               color:
                                                                   Colors.white,
                                                               size: 20),
@@ -672,8 +813,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                                       child: Row(
                                                         children: const [
                                                           Icon(
-                                                              Icons
-                                                                  .delete_rounded,
+                                                              Icons.delete_rounded,
                                                               color:
                                                                   Colors.white,
                                                               size: 20),
@@ -732,47 +872,39 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF1565C0),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 0,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24),
-        unselectedIconTheme: const IconThemeData(size: 24),
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded), label: 'Settings'),
-        ],
-        onTap: (index) {
-          if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Enrollment()),
-            );
-          } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const AttendanceReportPage()),
-            );
-          } else if (index == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const AccountSettingsPage()),
-            );
-          }
-        },
-      ),
-    );
-  }
+    ),
+    bottomNavigationBar: BottomNavigationBar(
+      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.white,
+      selectedItemColor: const Color(0xFF1565C0),
+      unselectedItemColor: Colors.grey,
+      currentIndex: 0,
+      selectedFontSize: 12,
+      unselectedFontSize: 12,
+      selectedIconTheme: const IconThemeData(size: 24),
+      unselectedIconTheme: const IconThemeData(size: 24),
+      onTap: (index) {
+        if (index == 0) {
+          Navigator.pushNamed(context, '/dashboard');
+        } else if (index == 1) {
+          Navigator.pushNamed(context, '/enroll');
+        } else if (index == 2) {
+          Navigator.pushNamed(context, '/reports');
+        } else if (index == 3) {
+          Navigator.pushNamed(context, '/settings');
+        }
+      },
+      items: const [
+        BottomNavigationBarItem(
+            icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
+        BottomNavigationBarItem(
+            icon: Icon(Icons.settings_rounded), label: 'Settings'),
+      ],
+    ),
+  );
+}
 }

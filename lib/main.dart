@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:userinterface/login.dart';
 import 'package:userinterface/signup.dart';
+import 'package:userinterface/faceenroll.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
+import 'package:userinterface/dashboard.dart';
+import 'package:userinterface/reports.dart';
+import 'package:userinterface/settings.dart';
 
-// void main() {
-//   runApp(const SmartAttendanceApp());
-// }
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -20,18 +21,21 @@ class SmartAttendanceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
-      child: MaterialApp(
-        title: 'cheese!',
-        theme: ThemeData(
-          brightness: Brightness.light,
-          primaryColor: const Color(0xFF1565C0),
-          fontFamily: 'Inter',
-          scaffoldBackgroundColor: const Color(0xFFFFFFFF),
-        ),
-        home: const HomePage(),
+    return MaterialApp(
+      title: 'cheese!',
+      theme: ThemeData(
+        brightness: Brightness.light,
+        primaryColor: const Color(0xFF1565C0),
+        fontFamily: 'Inter',
+        scaffoldBackgroundColor: const Color(0xFFFFFFFF),
       ),
+       routes: {
+        '/dashboard': (context) => const DashboardPage(),  
+        '/enroll': (context) => const Enrollment(),
+        '/reports': (context) => const AttendanceReportPage(),      
+        '/settings': (context) => const AccountSettingsPage(),  
+      },
+      home: const HomePage(),
     );
   }
 }
