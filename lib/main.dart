@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:userinterface/login.dart';
 import 'package:userinterface/signup.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 
 // void main() {
 //   runApp(const SmartAttendanceApp());
@@ -18,15 +20,18 @@ class SmartAttendanceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'cheese!',
-      theme: ThemeData(
-        brightness: Brightness.light,
-        primaryColor: const Color(0xFF1565C0),
-        fontFamily: 'Inter',
-        scaffoldBackgroundColor: const Color(0xFFFFFFFF),
+    return ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: MaterialApp(
+        title: 'cheese!',
+        theme: ThemeData(
+          brightness: Brightness.light,
+          primaryColor: const Color(0xFF1565C0),
+          fontFamily: 'Inter',
+          scaffoldBackgroundColor: const Color(0xFFFFFFFF),
+        ),
+        home: const HomePage(),
       ),
-      home: const HomePage(),
     );
   }
 }
@@ -72,7 +77,7 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 48),
 
-              // 🔹 Log in Button → Go to LoginPage
+              // Log in Button → Go to LoginPage
               SizedBox(
                 width: double.infinity,
                 height: 48,

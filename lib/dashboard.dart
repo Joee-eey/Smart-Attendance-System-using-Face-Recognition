@@ -55,6 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        if (!mounted) return;
         setState(() {
           folders = data
               .map((item) => Folder(

@@ -4,6 +4,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:userinterface/login.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
+import 'package:userinterface/dashboard.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -13,11 +17,68 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Prevent auto Google sign-in when returning from account chooser
+    GoogleSignIn().signOut();
+  }
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _acceptedTerms = false;
+
+  Future<void> handleGoogleSignIn(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final navigator = Navigator.of(context);
+
+    setState(() => _isLoading = true);
+
+    try {
+      await authProvider.signInWithGoogle(forceChooser: true);
+
+      if (authProvider.isAuthenticated) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF00B38A),
+          title: "Sign Up Successful!",
+          message: "Your account has been created with Google successfully.",
+          buttonText: "Continue",
+          onPressed: () {
+            Navigator.of(context).pop();
+            navigator.pushReplacement(
+              MaterialPageRoute(builder: (_) => const DashboardPage()),
+            );
+          },
+        );
+      } else if (authProvider.errorMessage != null) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
+          title: "Sign Up Failed",
+          message: authProvider.errorMessage ?? "Google sign-in failed. Please try again.",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      }
+    } catch (e) {
+      _showAnimatedDialog(
+        context,
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
+        title: "Sign Up Failed",
+        message: "Google sign-in failed. Please try again.",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> registerUser(
     String username,
@@ -328,7 +389,11 @@ class _SignupPageState extends State<SignupPage> {
               width: double.infinity,
               height: 48,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: (_isLoading)
+                    ? null
+                    : () {
+                        handleGoogleSignIn(context);
+                      },
                 icon: Image.asset(
                   'assets/images/google.png',
                   width: 20,
@@ -387,7 +452,7 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  // 🔹 Animated Popup Helper Function
+  // Animated Popup Helper Function
   void _showAnimatedDialog(
     BuildContext context, {
     required IconData icon,
