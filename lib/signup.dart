@@ -13,6 +13,11 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -302,19 +307,11 @@ class _SignupPageState extends State<SignupPage> {
   ],
 ),
 
-
             const SizedBox(height: 16),
             Row(
               children: const [
                 Expanded(
                   child: Divider(thickness: 1, color: Color(0xFFE0E0E0)),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.0),
-                  child: Text(
-                    "Or continue with",
-                    style: TextStyle(color: Colors.grey),
-                  ),
                 ),
                 Expanded(
                   child: Divider(thickness: 1, color: Color(0xFFE0E0E0)),
@@ -322,37 +319,6 @@ class _SignupPageState extends State<SignupPage> {
               ],
             ),
             const SizedBox(height: 20),
-
-            // Google
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: () {},
-                icon: Image.asset(
-                  'assets/images/google.png',
-                  width: 20,
-                  height: 20,
-                ),
-                label: const Text(
-                  "Google",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.transparent, width: 0),
-                  backgroundColor: const Color(0xFFF7F8FA),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  overlayColor: Colors.transparent,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 50),
 
             // Log in link
             Row(
@@ -387,7 +353,7 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  // 🔹 Animated Popup Helper Function
+  // Animated Popup Helper Function
   void _showAnimatedDialog(
     BuildContext context, {
     required IconData icon,

@@ -4,6 +4,8 @@ import 'package:userinterface/login.dart';
 import 'package:userinterface/signup.dart';
 import 'package:userinterface/faceenroll.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/dashboard.dart';
 import 'package:userinterface/reports.dart';
 import 'package:userinterface/settings.dart';
@@ -11,7 +13,12 @@ import 'package:userinterface/settings.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
-  runApp(const SmartAttendanceApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: const SmartAttendanceApp(),
+    ),
+  );
 }
 
 class SmartAttendanceApp extends StatelessWidget {
@@ -79,7 +86,7 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 48),
 
-              // 🔹 Log in Button → Go to LoginPage
+              // Log in button to go to LoginPage
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -117,7 +124,7 @@ class HomePage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // 🔹 Sign Up Button → Go to SignUpPage
+              // Sign up Button to go to SignUpPage
               SizedBox(
                 width: double.infinity,
                 height: 48,

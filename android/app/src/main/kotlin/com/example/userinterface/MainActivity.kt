@@ -1,4 +1,4 @@
-package com.example.userinterface
+package com.cheese.smartattendanceapp
 
 import io.flutter.embedding.android.FlutterActivity
 

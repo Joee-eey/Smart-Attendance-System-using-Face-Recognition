@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:userinterface/signup.dart';
 import 'package:userinterface/dashboard.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,6 +19,56 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+
+  Future<void> handleGoogleSignIn(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final navigator = Navigator.of(context);
+
+    setState(() => _isLoading = true);
+
+    try {
+      await authProvider.signInWithGoogle();
+
+      if (authProvider.isAuthenticated) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF00B38A),
+          title: "Sign In Successful",
+          message: "Welcome! You have signed in with Google successfully.",
+          buttonText: "Continue",
+          onPressed: () {
+            Navigator.of(context).pop();
+            navigator.pushReplacement(
+              MaterialPageRoute(builder: (_) => const DashboardPage()),
+            );
+          },
+        );
+      } else if (authProvider.errorMessage != null) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
+          title: "Sign In Failed",
+          message: authProvider.errorMessage ?? "Google sign-in failed. Please try again.",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      }
+    } catch (e) {
+      _showAnimatedDialog(
+        context,
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
+        title: "Sign In Failed",
+        message: "Google sign-in failed. Please try again.",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> loginUser(
       BuildContext context, String email, String password) async {
@@ -273,7 +325,11 @@ class _LoginPageState extends State<LoginPage> {
               width: double.infinity,
               height: 48,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        handleGoogleSignIn(context);
+                      },
                 icon: Image.asset(
                   'assets/images/google.png',
                   width: 20,
@@ -281,6 +337,36 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 label: const Text(
                   "Google",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.transparent),
+                  backgroundColor: const Color(0xFFF7F8FA),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Microsoft Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: null,
+                icon: Image.asset(
+                  'assets/images/Microsoft.png',
+                  width: 20,
+                  height: 20,
+                ),
+                label: const Text(
+                  "Microsoft",
                   style: TextStyle(
                     color: Colors.black,
                     fontWeight: FontWeight.w500,
@@ -330,7 +416,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // 🔹 Animated Popup Helper Function
+  // Animated Popup Helper Function
   void _showAnimatedDialog(
     BuildContext context, {
     required IconData icon,
