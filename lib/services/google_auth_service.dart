@@ -18,9 +18,8 @@ class GoogleUser {
 }
 
 /// Service for handling Google OAuth sign-in and sign-out
-/// Uses google_sign_in plugin (no Firebase)
 class GoogleAuthService {
-  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
     // Client ID from Google Cloud Console
     // This is optional - the plugin will use the default client ID from google-services.json
@@ -30,34 +29,34 @@ class GoogleAuthService {
 
   /// Signs in with Google and returns user information
   /// Returns null if sign-in was cancelled
-  Future<GoogleUser?> signInWithGoogle({bool forceAccountChooser = false}) async {
-    try {
-      if (forceAccountChooser) {
-        await _googleSignIn.signOut();
-      }
-      final GoogleSignInAccount? account = await _googleSignIn.signIn();
-
-      if (account == null) {
-        // User cancelled the sign-in
-        return null;
-      }
-
-      // Request authentication tokens
-      final GoogleSignInAuthentication authentication =
-          await account.authentication;
-
-      return GoogleUser(
-        displayName: account.displayName ?? '',
-        email: account.email,
-        photoUrl: account.photoUrl,
-        idToken: authentication.idToken,
-        accessToken: authentication.accessToken,
-      );
-    } catch (e) {
-      // Handle sign-in errors
-      throw Exception('Google sign-in failed: $e');
-    }
+Future<GoogleUser?> signInWithGoogle({bool forceAccountChooser = false}) async {
+  try {
+    if (forceAccountChooser) {
+      await _googleSignIn.signOut();
+      await _googleSignIn.disconnect();
   }
+
+    final GoogleSignInAccount? account = await _googleSignIn.signIn();
+
+    if (account == null) {
+      // User cancelled the sign-in
+      return null;
+    }
+
+    final GoogleSignInAuthentication authentication =
+        await account.authentication;
+
+    return GoogleUser(
+      displayName: account.displayName ?? '',
+      email: account.email,
+      photoUrl: account.photoUrl,
+      idToken: authentication.idToken,
+      accessToken: authentication.accessToken,
+    );
+  } catch (e) {
+    return null;
+  }
+}
 
   /// Signs out the current Google user
   Future<void> signOut() async {

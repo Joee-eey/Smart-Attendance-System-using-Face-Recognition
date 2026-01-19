@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:userinterface/login.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
+import 'package:userinterface/main.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -41,13 +43,15 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
   }
 
-  void _handleSignOut() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPage()), 
-      (route) => false, 
-    );
-  }
+void _handleSignOut() async {
+  await Provider.of<AuthProvider>(context, listen: false).signOut();
+
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => const HomePage()),
+    (_) => false,
+  );
+}
 
   @override
   Widget build(BuildContext context) {

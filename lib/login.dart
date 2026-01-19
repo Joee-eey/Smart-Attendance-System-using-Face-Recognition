@@ -352,6 +352,36 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
 
+            const SizedBox(height: 20),
+
+            // Microsoft Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: null,
+                icon: Image.asset(
+                  'assets/images/Microsoft.png',
+                  width: 20,
+                  height: 20,
+                ),
+                label: const Text(
+                  "Microsoft",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.transparent),
+                  backgroundColor: const Color(0xFFF7F8FA),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+
             const SizedBox(height: 50),
 
             Row(
@@ -386,7 +416,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // 🔹 Animated Popup Helper Function
+  // Animated Popup Helper Function
   void _showAnimatedDialog(
     BuildContext context, {
     required IconData icon,

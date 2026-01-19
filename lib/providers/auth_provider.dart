@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:userinterface/services/google_auth_service.dart';
 
 /// Provider for managing authentication state
-/// Handles Google sign-in state and user information
+/// Handles Google sign in state and user information
 class AuthProvider with ChangeNotifier {
+
   final GoogleAuthService _googleAuthService = GoogleAuthService();
   
   GoogleUser? _currentUser;
@@ -16,25 +17,30 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
 
   /// Signs in with Google
-  Future<void> signInWithGoogle({bool forceChooser = false}) async {
-    _setLoading(true);
-    _clearError();
+Future<bool> signInWithGoogle({bool forceChooser = false}) async {
+  _setLoading(true);
+  _clearError();
 
-    try {
-      final user = await _googleAuthService.signInWithGoogle(forceAccountChooser: forceChooser);
-      
-      if (user != null) {
-        _currentUser = user;
-        notifyListeners();
-      } else {
-        // User cancelled sign-in
-      }
-    } catch (e) {
-      _setError('Sign-in failed: ${e.toString()}');
-    } finally {
-      _setLoading(false);
+  try {
+    final user = await _googleAuthService.signInWithGoogle(
+      forceAccountChooser: forceChooser,
+    );
+
+    if (user == null) {
+      // User cancelled account chooser
+      return false;
     }
+
+    _currentUser = user;
+    notifyListeners();
+    return true;
+  } catch (e) {
+    _setError('Sign-in failed: ${e.toString()}');
+    return false;
+  } finally {
+    _setLoading(false);
   }
+}
 
   /// Signs out the current user
   Future<void> signOut() async {
