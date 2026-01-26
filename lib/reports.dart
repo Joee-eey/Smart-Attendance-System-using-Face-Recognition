@@ -39,6 +39,7 @@ class AttendanceReportPage extends StatefulWidget {
 class _AttendanceReportPageState extends State<AttendanceReportPage> {
   String selectedRange = "Select Date";
   String? selectedGroup;
+  String? selectedSchedule;
   DateTime? selectedDate;
 
   final List<String> groups = [
@@ -46,6 +47,12 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
     "Class 2",
     "Class 3",
   ];
+
+  final Map<String, List<String>> scheduleTimes = {
+    "Class 1": ["08:00 AM - 09:00 AM", "10:00 AM - 11:00 AM"],
+    "Class 2": ["09:00 AM - 10:00 AM", "11:00 AM - 12:00 PM"],
+    "Class 3": ["08:30 AM - 09:30 AM", "01:00 PM - 02:00 PM"],
+  };
 
   Future<void> _pickSingleDate() async {
     final DateTime now = DateTime.now();
@@ -382,10 +389,24 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
               const Text("Group",
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 5),
-
               _buildDropdown(selectedGroup, groups, (value) {
-                setState(() => selectedGroup = value);
+                setState(() {
+                  selectedGroup = value;
+                  selectedSchedule = null; 
+                });
               }),
+              const SizedBox(height: 15),
+
+              const Text("Schedule Time",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 5),
+              _buildDropdown(
+                selectedSchedule,
+                selectedGroup != null ? scheduleTimes[selectedGroup!]! : [],
+                (value) {
+                  setState(() => selectedSchedule = value);
+                },
+              ),
 
               const SizedBox(height: 20),
 

@@ -67,6 +67,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
   // Store captured or picked image for preview
   XFile? _capturedImage; 
 
+  double _currentZoom = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 1.0;  
+  double _baseZoom = 1.0;
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +90,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     try {
       await _controller!.initialize();
+
+      _minZoom = await _controller!.getMinZoomLevel();
+      _maxZoom = await _controller!.getMaxZoomLevel();
+      _maxZoom = _maxZoom.clamp(1.0, 3.0);
+      _currentZoom = _minZoom;
+
       await _controller!.setFlashMode(flashOn ? FlashMode.torch : FlashMode.off);
 
       if (mounted) {
@@ -288,9 +299,26 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Widget _buildCameraPreview() {
     return GestureDetector(
+      // Pinch to zoom
+      onScaleStart: (details) {
+        _baseZoom = _currentZoom;
+      },
+
+      onScaleUpdate: (details) async {
+        if (_controller == null || !_controller!.value.isInitialized) return;
+        if (_controller!.description.lensDirection == CameraLensDirection.front) return;
+
+        double newZoom = _baseZoom * details.scale;
+        newZoom = newZoom.clamp(_minZoom, _maxZoom);
+
+        await _controller!.setZoomLevel(newZoom);
+        _currentZoom = newZoom;
+      },
+
       onTap: () {
         if (showSettings) setState(() => showSettings = false);
       },
+
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -307,10 +335,22 @@ class _ScannerScreenState extends State<ScannerScreen> {
             )
           else
             Container(color: Colors.grey[200]),
+
           if (showGrid)
             IgnorePointer(
-              child: CustomPaint(size: Size.infinite, painter: GridPainter()),
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: GridPainter(),
+              ),
             ),
+
+          IgnorePointer(
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: FaceOutlinePainter(),
+            ),
+          ),
+
           if (showSettings) _buildSettingsPanel(),
         ],
       ),
@@ -552,3 +592,28 @@ class GridPainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
+
+class FaceOutlinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    final ovalWidth = size.width * 0.5;
+    final ovalHeight = size.height * 0.5;
+
+    final rect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: ovalWidth,
+      height: ovalHeight,
+    );
+
+    canvas.drawOval(rect, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+

@@ -16,8 +16,7 @@ db = mysql.connector.connect(
     host=DB_HOST,
     port=DB_PORT,
     user=DB_USERNAME,
-    password=DB_PASSWORD,
-    database=DB_DATABASE
+    password=DB_PASSWORD
 )
 cursor = db.cursor()
 
@@ -109,3 +108,4 @@ cursor.close()
 db.close()
 
 print("✅ Smart Attendance Database & Tables (Lecturer-only) created successfully!")
+ 

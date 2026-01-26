@@ -21,6 +21,11 @@ class _AttendanceState extends State<Attendance> {
   List<Map<String, dynamic>> attendanceList = [];
   bool isLoading = true;
 
+  List<String> selectedFilters = ["All"]; 
+  String sortOrder = "A-Z"; 
+
+  final GlobalKey _filterKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +40,168 @@ class _AttendanceState extends State<Attendance> {
     if (args != null && args['refresh'] == true) {
       fetchAttendance(widget.classId); // reload list
     }
+  }
+
+  void _showFilterPopup() {
+    final RenderBox renderBox = _filterKey.currentContext!.findRenderObject() as RenderBox;
+    final Offset offset = renderBox.localToGlobal(Offset.zero);
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx - 130,
+        offset.dy + renderBox.size.height,
+        offset.dx + renderBox.size.width,
+        0,
+      ),
+      color: const Color(0xE61565C0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: 0,
+      items: [
+        PopupMenuItem(
+          enabled: false,
+          child: StatefulBuilder(
+            builder: (context, menuSetState) {
+              const subFilters = ["Present", "Absent"];
+
+              return IconTheme(
+                data: const IconThemeData(
+                  color: Color(0xFFFFFFFF),
+                  size: 18,
+                ),
+                child: SizedBox(
+                  width: 140,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 5.0, top: 5.0),
+                        child: Text(
+                          "Sort & Filter",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const Divider(color: Colors.white, thickness: 1),
+
+                      ...["All", ...subFilters].map((item) {
+                        bool checked = selectedFilters.contains(item);
+                        return _buildSelectionRow(
+                          label: item,
+                          icon: checked
+                              ? Icons.check_box_rounded
+                              : Icons.check_box_outline_blank_rounded,
+                          onTap: () {
+                            menuSetState(() {
+                              if (item == "All") {
+                                if (checked) {
+                                  selectedFilters = [];
+                                } else {
+                                  selectedFilters = ["All", ...subFilters];
+                                }
+                              } else {
+                                if (checked) {
+                                  selectedFilters.remove(item);
+                                  selectedFilters.remove("All");
+                                } else {
+                                  selectedFilters.add(item);
+                                  if (subFilters.every(
+                                      (element) => selectedFilters.contains(element))) {
+                                    selectedFilters.add("All");
+                                  }
+                                }
+                              }
+                              _applySortFilter(); 
+                            });
+                          },
+                        );
+                      }).toList(),
+
+                      const Divider(color: Colors.white, thickness: 1),
+
+                      _buildSelectionRow(
+                        label: "A-Z",
+                        icon: sortOrder == "A-Z"
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        onTap: () => menuSetState(() {
+                          sortOrder = "A-Z";
+                          _applySortFilter();
+                        }),
+                      ),
+                      _buildSelectionRow(
+                        label: "Z-A",
+                        icon: sortOrder == "Z-A"
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        onTap: () => menuSetState(() {
+                          sortOrder = "Z-A";
+                          _applySortFilter();
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectionRow({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _applySortFilter() {
+    setState(() {
+      List<Map<String, dynamic>> filtered = List.from(attendanceList);
+
+      if (!selectedFilters.contains("All")) {
+        if (selectedFilters.contains("Present")) {
+          filtered = filtered
+              .where((item) => item['status'].toString().toLowerCase() == 'present')
+              .toList();
+        }
+        if (selectedFilters.contains("Absent")) {
+          filtered = filtered
+              .where((item) => item['status'].toString().toLowerCase() == 'absent')
+              .toList();
+        }
+      }
+
+      filtered.sort((a, b) {
+        final nameA = a['name'].toString().toLowerCase();
+        final nameB = b['name'].toString().toLowerCase();
+        return sortOrder == "A-Z" ? nameA.compareTo(nameB) : nameB.compareTo(nameA);
+      });
+
+      attendanceList = filtered;
+    });
   }
 
   Future<void> fetchAttendance(int classId) async {
@@ -75,18 +242,15 @@ class _AttendanceState extends State<Attendance> {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
       final url = Uri.parse('$baseUrl/attendance/$id'); 
-      log("Attempting to delete ID: $id at $url"); // Debug log
+      log("Attempting to delete ID: $id at $url"); 
       final response = await http.delete(url);
       
       if (response.statusCode == 200) {
         log('Record deleted successfully from DB');
-        
         setState(() {
           attendanceList.removeWhere((item) => item['id'] == id);
         });
-        
         fetchSummary(widget.classId);
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Record deleted successfully")),
         );
@@ -111,9 +275,7 @@ class _AttendanceState extends State<Attendance> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
         log("Fetched summary data: $data");
-
         setState(() {
           presentCount = data['present_count'] ?? 0;
           absentCount = data['absent_count'] ?? 0;
@@ -286,14 +448,26 @@ class _AttendanceState extends State<Attendance> {
             const SizedBox(height: 15),
             
             // Recent Scans Label
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Recent Scans",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Recent Scans",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  key: _filterKey,
+                  icon: const Icon(
+                    Icons.filter_alt_rounded,
+                    color: Color(0xFF1565C0),
+                  ),
+                  onPressed: () {
+                    _showFilterPopup();
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 5),
+
             
             // Scrollable Recent Scans List
             Expanded(
@@ -453,17 +627,64 @@ class _AttendanceState extends State<Attendance> {
                               ],
                             ),
                           ),
-                          Text(
-                            (record['status'] != null)
-                                ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
-                                : 'Unknown',
-                            style: TextStyle(
-                              color: (record['status']?.toString().toLowerCase() == 'present')
-                                  ? const Color(0xFF00B38A)
-                                  : const Color(0xFFEA324C),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                (record['status'] != null)
+                                    ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
+                                    : 'Unknown',
+                                style: TextStyle(
+                                  color: (record['status']?.toString().toLowerCase() == 'present')
+                                      ? const Color(0xFF00B38A)
+                                      : const Color(0xFFEA324C),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+
+                              // Vertical divider
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 8),
+                                height: 20,
+                                width: 1,
+                                color: const Color(0x1A000000),
+                              ),
+
+                              // Delete icon
+                              GestureDetector(
+                                onTap: () async {
+                                  bool confirmed = await showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text("Delete record"),
+                                      content: const Text("This action cannot be undone."),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text("Cancel"),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text(
+                                            "Delete",
+                                            style: TextStyle(color: Color(0xFFF84F31)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirmed == true && record['id'] != null) {
+                                    await deleteAttendance(record['id']);
+                                  }
+                                },
+                                child: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 20,
+                                  color: Color(0xFFF84F31),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

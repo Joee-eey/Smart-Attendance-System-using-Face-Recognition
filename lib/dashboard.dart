@@ -52,7 +52,6 @@ class _DashboardPageState extends State<DashboardPage> {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        if (!mounted) return;
         setState(() {
           folders = data
               .map((item) => Folder(
@@ -255,7 +254,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isEdit ? "Edit Folder" : "New Folder",
+                      isEdit ? "Edit Group" : "New Group",
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -306,7 +305,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
-                    hintText: "Enter Folder Name",
+                    hintText: "Enter Group Name",
                     hintStyle:
                         const TextStyle(color: Colors.grey, fontSize: 14),
                     filled: true,
@@ -344,7 +343,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     },
 
                     child: Text(
-                      isEdit ? "Confirm Changes" : "Create Folder",
+                      isEdit ? "Confirm Changes" : "Create",
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                     ),
@@ -359,8 +358,102 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _showFileDialog(Folder folder, {FileItem? file, bool isEdit = false}) {
-    final TextEditingController nameController =
-        TextEditingController(text: file?.name ?? '');
+    // Controllers for the time fields
+    final TextEditingController startTimeController = TextEditingController();
+    final TextEditingController endTimeController = TextEditingController();
+
+    // Helper function to pick time
+    Future<void> _selectTime(TextEditingController controller) async {
+    TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              useMaterial3: true, 
+              colorScheme: const ColorScheme.light(
+                primary: Color(0xFF1565C0), 
+                onPrimary: Colors.white,    
+                surface: Colors.white,
+                onSurface: Colors.black,    
+              ),
+              timePickerTheme: TimePickerThemeData(
+                // Header Style
+                helpTextStyle: const TextStyle(
+                  fontSize: 18, 
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
+
+                // Keyboard Icon
+                entryModeIconColor: Colors.black,
+
+                // AM/PM Styles
+                dayPeriodBorderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                dayPeriodColor: WidgetStateColor.resolveWith((states) =>
+                    states.contains(WidgetState.selected)
+                        ? const Color(0xFFE3F2FD) // Light Blue background
+                        : Colors.white),
+                dayPeriodTextColor: WidgetStateColor.resolveWith((states) =>
+                  states.contains(WidgetState.selected)
+                      ? const Color(0xFF1565C0) // Selected text color
+                      : Colors.black), 
+
+                // Hour/Minute Styles
+                hourMinuteColor: WidgetStateColor.resolveWith((states) =>
+                    states.contains(WidgetState.selected)
+                        ? const Color(0xFFE3F2FD)
+                        : const Color(0xFFEEEEEE)),
+                hourMinuteTextColor: WidgetStateColor.resolveWith((states) =>
+                  states.contains(WidgetState.selected)
+                      ? const Color(0xFF1565C0) // Selected text color
+                      : Colors.black),          // Unselected text color (Black)
+                hourMinuteTextStyle: const TextStyle(fontSize: 50, fontWeight: FontWeight.w500),
+                hourMinuteShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+
+                // Dial Styles (The Clock)
+                dialBackgroundColor: const Color(0xFFF0F0F0),
+                dialHandColor: const Color(0xFF1565C0),
+                dialTextStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              ),
+              // FIXED: Only one textButtonTheme allowed
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF1565C0),
+                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  padding: const EdgeInsets.only(bottom: 5, top: 20),
+                  ),
+                ),
+              ),
+            
+              // Using Transform.scale is the safest way to make the dial background bigger 
+              // without triggering "undefined parameter" errors.
+              child: Center(
+                child: Transform.scale(
+                  scale: 1.0,
+                  child: child!,
+                ),
+              ),
+            ),
+          );
+       },
+    );
+
+    if (picked != null) {
+      final now = DateTime.now();
+      final dt = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+      setState(() {
+        controller.text = DateFormat('hh:mm a').format(dt); // Forces "08:30 AM"
+      });
+    }
+  }
+
     showDialog(
       context: context,
       builder: (context) {
@@ -378,7 +471,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isEdit ? "Edit File" : "New File",
+                      isEdit ? "Edit Schedule Time" : "New Schedule Time",
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -398,22 +491,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: const Color(0xFFF6F6F6),
                 ),
                 const SizedBox(height: 15),
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    hintText: "Enter File Name",
-                    hintStyle:
-                        const TextStyle(color: Colors.grey, fontSize: 14),
-                    filled: true,
-                    fillColor: const Color(0xFFF7F8FA),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                  ),
-                ),
+
+                // Start Time Field
+                _buildTimeField("Select Start Time", startTimeController, () => _selectTime(startTimeController)),
+                
+                const SizedBox(height: 12),
+                
+                // End Time Field
+                _buildTimeField("Select End Time", endTimeController, () => _selectTime(endTimeController)),
+
                 const SizedBox(height: 15),
                 SizedBox(
                   width: double.infinity,
@@ -426,20 +512,19 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
 
                     onPressed: () async {
-                      if (nameController.text.isNotEmpty) {
+                      if (startTimeController.text.isNotEmpty && endTimeController.text.isNotEmpty) {
+                        String combinedName = "${startTimeController.text} - ${endTimeController.text}";
                         if (isEdit && file != null) {
-                          await updateFile(folder, file.id, nameController.text);
-                        } else {
-                          if (folder.id != null) {
-                            await createFile(folder.id!, nameController.text);
-                          }
+                          await updateFile(folder, file.id, combinedName);
+                        } else if (folder.id != null) {
+                          await createFile(folder.id!, combinedName);
                         }
                         if (mounted) Navigator.pop(context);
                       }
                     },
 
                     child: Text(
-                      isEdit ? "Save Changes" : "Create File",
+                      isEdit ? "Save Changes" : "Create",
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                     ),
@@ -450,6 +535,27 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         );
       },
+    );
+  }
+
+  // Helper widget to maintain the UI style in your image
+  Widget _buildTimeField(String hint, TextEditingController controller, VoidCallback onTap) {
+    return TextField(
+      controller: controller,
+      readOnly: true,
+      onTap: onTap,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFBDBDBD), fontSize: 14),
+        suffixIcon: const Icon(Icons.access_time_rounded, color: Color(0xFF1565C0)),
+        filled: true,
+        fillColor: const Color(0xFFF7F8FA),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
     );
   }
 
@@ -474,7 +580,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text(
-                  "Do you really want to delete this ${isFile ? 'file' : 'folder'}?\nThis process cannot be undone.",
+                  "Do you really want to delete this ${isFile ? 'schedule time' : 'group'}?\nThis process cannot be undone.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.grey),
                 ),
@@ -648,60 +754,103 @@ Widget build(BuildContext context) {
                             children: [
                               GestureDetector(
                                 onTap: () async {
-                                  if (!folder.isExpanded &&
-                                      folder.files.isEmpty) {
+                                  if (!folder.isExpanded && folder.files.isEmpty) {
                                     await fetchFiles(folder);
                                   }
-                                  setState(() =>
-                                      folder.isExpanded = !folder.isExpanded);
+                                  setState(() => folder.isExpanded = !folder.isExpanded);
                                 },
                                 child: Container(
-                                  height: 60,
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 4),
+                                  height: 105,
+                                  margin: const EdgeInsets.symmetric(vertical: 4),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF7F8FA),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  child: Row(
+                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 5), 
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween, 
                                     children: [
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0x1A000000),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(folder.name,
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 15)),
-                                            Text(
-                                              "Last updated on ${folder.date.day.toString().padLeft(2, '0')}/${folder.date.month.toString().padLeft(2, '0')}/${folder.date.year}",
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x1A000000),
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  folder.name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "Last updated on ${folder.date.day.toString().padLeft(2, '0')}/"
+                                                  "${folder.date.month.toString().padLeft(2, '0')}/"
+                                                  "${folder.date.year}",
+                                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            folder.isExpanded
+                                                ? Icons.keyboard_arrow_up_rounded
+                                                : Icons.keyboard_arrow_down_rounded,
+                                            color: const Color(0xE6000000),
+                                          ),
+                                        ],
                                       ),
-                                      Icon(
-                                        folder.isExpanded
-                                            ? Icons.keyboard_arrow_up_rounded
-                                            : Icons.keyboard_arrow_down_rounded,
-                                        color: const Color(0xE6000000),
+
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                            onPressed: () {
+                                              // Add user function here (Yanhui)
+                                            },
+                                            icon: const Icon(
+                                              Icons.person,
+                                              color: Color(0xB3000000),
+                                              size: 20,
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 1,
+                                            height: 20,
+                                            color: const Color(0x1A000000),
+                                          ),
+                                          IconButton(
+                                            onPressed: () => _showFolderDialog(folder: folder, isEdit: true),
+                                            icon: const Icon(
+                                              Icons.edit_rounded,
+                                              color: Color(0xFF1565C0),
+                                              size: 20,
+                                            ),
+                                          ),
+                                          Container(
+                                            width: 1,
+                                            height: 20,
+                                            color: const Color(0x1A000000),
+                                          ),
+                                          IconButton(
+                                            onPressed: () => _showDeleteDialog(folder),
+                                            icon: const Icon(
+                                              Icons.delete_rounded,
+                                              color: Color(0xFFF84F31),
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -760,7 +909,7 @@ Widget build(BuildContext context) {
                                                         ),
                                                       ),
                                                       Text(
-                                                        "Updated on ${file.date.day.toString().padLeft(2, '0')}/${file.date.month.toString().padLeft(2, '0')}/${file.date.year}",
+                                                        "Last Updated on ${file.date.day.toString().padLeft(2, '0')}/${file.date.month.toString().padLeft(2, '0')}/${file.date.year}",
                                                         style: const TextStyle(
                                                             fontSize: 12,
                                                             color: Colors.grey),
@@ -850,7 +999,7 @@ Widget build(BuildContext context) {
                                                 color: Color(0xFF1565C0),
                                                 size: 18),
                                             label: const Text(
-                                              "Add New File",
+                                              "Add New Schedule Time",
                                               style: TextStyle(
                                                 color: Color(0xFF1565C0),
                                                 fontWeight: FontWeight.w500,

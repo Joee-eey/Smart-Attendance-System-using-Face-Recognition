@@ -203,20 +203,50 @@ class _LoginPageState extends State<LoginPage> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start, 
           children: [
-            const SizedBox(height: 5),
-            const Text(
-              "Welcome",
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+            // Super Admin
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    // Add Super Admin action here (Yanhui)
+                  },
+                  child: const Text(
+                    "Super Admin?",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.normal,
+                      color: Color(0xFF1565C0),
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFF1565C0),
+                      decorationThickness: 1.0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 50),
+
+            // Welcome text
+            const Center(
+              child: Text(
+                "Welcome",
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(height: 5),
-            const Text(
-              "Log in to continue",
-              style: TextStyle(fontSize: 15, color: Color(0xB2000000)),
+            const Center(
+              child: Text(
+                "Log in to continue",
+                style: TextStyle(fontSize: 15, color: Color(0xB2000000)),
+              ),
             ),
+            
             const SizedBox(height: 38),
 
             // Email
@@ -320,66 +350,55 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 20),
 
-            // Google Button
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _isLoading
-                    ? null
-                    : () {
-                        handleGoogleSignIn(context);
-                      },
-                icon: Image.asset(
-                  'assets/images/google.png',
-                  width: 20,
-                  height: 20,
-                ),
-                label: const Text(
-                  "Google",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w500,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Google Button
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            handleGoogleSignIn(context);
+                          },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.transparent),
+                      backgroundColor: const Color(0xFFF7F8FA),
+                      shape: const CircleBorder(),
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: Image.asset(
+                      'assets/images/google.png',
+                      width: 20,
+                      height: 20,
+                    ),
                   ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.transparent),
-                  backgroundColor: const Color(0xFFF7F8FA),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
 
-            const SizedBox(height: 20),
+                const SizedBox(width: 20),
 
-            // Microsoft Button
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: null,
-                icon: Image.asset(
-                  'assets/images/Microsoft.png',
-                  width: 20,
-                  height: 20,
-                ),
-                label: const Text(
-                  "Microsoft",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w500,
+                // Microsoft Button
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.transparent),
+                      backgroundColor: const Color(0xFFF7F8FA),
+                      shape: const CircleBorder(),
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: Image.asset(
+                      'assets/images/Microsoft.png',
+                      width: 20,
+                      height: 20,
+                    ),
                   ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.transparent),
-                  backgroundColor: const Color(0xFFF7F8FA),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
+              ],
             ),
 
             const SizedBox(height: 50),

@@ -36,11 +36,11 @@ def enroll():
     name = request.form.get("name")
     student_card_id = request.form.get("student_card_id")
     course = request.form.get("course")
-    subject_id = request.form.get("subject_id")
+    # subject_id = request.form.get("subject_id") 
     image = request.files.get("image")
 
     # Check required fields
-    if not all([name, student_card_id, course, subject_id, image]):
+    if not all([name, student_card_id, course, image]):
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
@@ -90,10 +90,10 @@ def enroll():
         conn = get_db_connection()
         cursor = conn.cursor()
         sql = """
-            INSERT INTO students (name, student_card_id, course, subject_id, face_token, face_image_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO students (name, student_card_id, course, face_token, face_image_url)
+            VALUES (%s, %s, %s, %s, %s)
         """
-        cursor.execute(sql, (name, student_card_id, course, subject_id, face_token, image_path))
+        cursor.execute(sql, (name, student_card_id, course, face_token, image_path))
         conn.commit()
         print("[DEBUG] Student inserted successfully into DB", flush=True)
 
@@ -122,18 +122,18 @@ def enroll():
             print("[DEBUG] DB connection closed", flush=True)
 
 
-@enroll_bp.route("/subjects", methods=["GET"])
-def get_subjects():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, name FROM subjects")
-        subjects = cursor.fetchall()
-        return jsonify(subjects), 200
-    except Exception as e:
-        print(e)
-        return jsonify({"error": "Failed to fetch subjects"}), 500
-    finally:
-        if 'conn' in locals() and conn.is_connected():
-            cursor.close()
-            conn.close()
+# @enroll_bp.route("/subjects", methods=["GET"])  
+# def get_subjects():
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)
+#         cursor.execute("SELECT id, name FROM subjects")
+#         subjects = cursor.fetchall()
+#         return jsonify(subjects), 200
+#     except Exception as e:
+#         print(e)
+#         return jsonify({"error": "Failed to fetch subjects"}), 500
+#     finally:
+#         if 'conn' in locals() and conn.is_connected():
+#             cursor.close()
+#             conn.close()

@@ -42,7 +42,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   // ---------- FETCH SUBJECTS FROM BACKEND ----------
   Future<void> fetchSubjects() async {
     try {
-      final baseUrl = dotenv.env['BASE_URL']!;
+      final baseUrl = dotenv.env['BASE_URL'] ?? '';
+      if (baseUrl.isEmpty) return;
+
       var uri = Uri.parse('$baseUrl/subjects');
       var response = await http.get(uri);
 
@@ -63,28 +65,46 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
   // ----------- ENROLL STUDENT FUNCTION -------------
   Future<void> enrollStudent() async {
+    if (nameController.text.isEmpty ||
+        idController.text.isEmpty ||
+        courseController.text.isEmpty) {
+      _showAnimatedDialog(
+        context: context,
+        icon: Icons.error_outline_rounded,
+        iconColor: Colors.red,
+        title: "Validation Error",
+        message: "Please fill in all required fields.",
+        buttonText: "Close",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+      return;
+    }
+
     try {
-      if (selectedSubjectId == null) return;
-      _showLoadingDialog(context); 
-      final baseUrl = dotenv.env['BASE_URL']!;
+      _showLoadingDialog(context);
+
+      final baseUrl = dotenv.env['BASE_URL'] ?? '';
+      if (baseUrl.isEmpty) return;
+
       var uri = Uri.parse('$baseUrl/enroll');
       var request = http.MultipartRequest("POST", uri);
+
       request.fields["name"] = nameController.text;
       request.fields["student_card_id"] = idController.text;
       request.fields["course"] = courseController.text;
-      request.fields["subject_id"] = selectedSubjectId!;
-      request.files.add(await http.MultipartFile.fromPath(
-        "image",
-        widget.imagePath,
-        filename: path.basename(widget.imagePath),
-      ));
+
+      if (File(widget.imagePath).existsSync()) {
+        request.files.add(await http.MultipartFile.fromPath(
+          "image",
+          widget.imagePath,
+          filename: path.basename(widget.imagePath),
+        ));
+      }
 
       var response = await request.send();
       var responseBody = await http.Response.fromStream(response);
 
-      if (mounted) {
-        _hideLoadingDialog(context);
-      } 
+      if (mounted) _hideLoadingDialog(context);
 
       if (responseBody.statusCode == 201 || responseBody.statusCode == 200) {
         if (mounted) {
@@ -96,7 +116,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             message: "Student has been enrolled successfully.",
             buttonText: "Continue",
             onPressed: () {
-              Navigator.of(context).pop(); 
+              Navigator.of(context).pop();
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const Enrollment()),
@@ -111,19 +131,27 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             icon: Icons.error_outline_rounded,
             iconColor: Colors.red,
             title: "Enrollment Failed",
-            message: "Error: ${responseBody.body}",
+            message:
+                "Error: ${responseBody.body.isNotEmpty ? responseBody.body : responseBody.statusCode}",
             buttonText: "Close",
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
+            onPressed: () => Navigator.of(context).pop(),
           );
         }
       }
     } catch (e, stackTrace) {
-      if (mounted) {
-        _hideLoadingDialog(context);
-      } 
+      if (mounted) _hideLoadingDialog(context);
       log("Error enrolling student", error: e, stackTrace: stackTrace);
+      if (mounted) {
+        _showAnimatedDialog(
+          context: context,
+          icon: Icons.error_outline_rounded,
+          iconColor: Colors.red,
+          title: "Enrollment Failed",
+          message: "An unexpected error occurred.",
+          buttonText: "Close",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      }
     }
   }
 
@@ -157,10 +185,11 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: iconColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8))),
+                  backgroundColor: iconColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
                 onPressed: onPressed,
                 child: Text(buttonText),
               ),
@@ -174,15 +203,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   void _showLoadingDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierDismissible: false, 
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
   }
 
   void _hideLoadingDialog(BuildContext context) {
-    Navigator.of(context).pop();
+    if (Navigator.canPop(context)) Navigator.of(context).pop();
   }
 
   @override
@@ -197,140 +224,144 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const SizedBox(height: 0),
-
-              // Profile Image Preview
-              Center(
-                child: CircleAvatar(
-                  radius: 120,
-                  backgroundColor: const Color(0xFF1565C0),
-                  backgroundImage: File(widget.imagePath).existsSync()
-                      ? FileImage(File(widget.imagePath))
-                      : null,
-                  child: !File(widget.imagePath).existsSync()
-                      ? const Icon(Icons.person, color: Colors.white, size: 100)
-                      : null,
+        child: SingleChildScrollView(   // <-- Wrap Column to prevent overflow
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  onPressed: () => Navigator.pop(context),
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              // Student Details
-              SizedBox(
-                height: 50,
-                child: _buildTextField("Enter student name", nameController),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 50,
-                child: _buildTextField("Enter student ID", idController),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 50,
-                child:
-                    _buildTextField("Enter student course", courseController),
-              ),
-              const SizedBox(height: 10),
-
-              // Dropdown (Subjects)
-              SizedBox(
-                height: 50,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF6F6F6),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      hint: const Text("Select subject..",
-                          style: TextStyle(color: Colors.grey)),
-                      value: selectedSubjectId,
-                      items: subjects.map((subject) {
-                        return DropdownMenuItem<String>(
-                          value: subject['id'].toString(),
-                          child: Text(subject['name']),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() => selectedSubjectId = value);
-                      },
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                          color: Colors.grey),
-                      isExpanded: true,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              // Enroll Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+                const SizedBox(height: 0),
+                // Profile Image Preview
+                Center(
+                  child: CircleAvatar(
+                    radius: 120,
                     backgroundColor: const Color(0xFF1565C0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    backgroundImage: File(widget.imagePath).existsSync()
+                        ? FileImage(File(widget.imagePath))
+                        : null,
+                    child: !File(widget.imagePath).existsSync()
+                        ? const Icon(Icons.person, color: Colors.white, size: 100)
+                        : null,
                   ),
-                  onPressed: enrollStudent,
-                  child: const Text(
-                    "Enroll",
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(height: 20),
+                // Student Details
+                SizedBox(
+                    height: 50,
+                    child: _buildTextField("Enter student name", nameController)),
+                const SizedBox(height: 10),
+                SizedBox(
+                    height: 50,
+                    child: _buildTextField("Enter student ID", idController)),
+                const SizedBox(height: 10),
+                SizedBox(
+                    height: 50,
+                    child: _buildTextField("Enter student course", courseController)),
+                const SizedBox(height: 15),
+                // Dropdown (Subjects) HIDDEN!
+                Visibility(
+                  visible: false,
+                  child: SizedBox(
+                    height: 50,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF6F6F6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          hint: const Text("Select subject..",
+                              style: TextStyle(color: Colors.grey)),
+                          value: selectedSubjectId,
+                          items: subjects.map((subject) {
+                            return DropdownMenuItem<String>(
+                              value: subject['id'].toString(),
+                              child: Text(subject['name']),
+                            );
+                          }).toList(),
+                          onChanged: (value) =>
+                              setState(() => selectedSubjectId = value),
+                          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                              color: Colors.grey),
+                          isExpanded: true,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20), // optional spacing before bottom nav
+              ],
+            ),
           ),
         ),
       ),
-
-      // Bottom Navigation Bar
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF1565C0),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 1,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        selectedIconTheme: const IconThemeData(size: 24),
-        unselectedIconTheme: const IconThemeData(size: 24),
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacementNamed(context, '/dashboard');
-          } else if (index == 1) {
-          // Stay on Enrollment
-          } else if (index == 2) {
-            Navigator.pushReplacementNamed(context, '/reports');
-          } else if (index == 3) {
-            Navigator.pushReplacementNamed(context, '/settings');
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.settings_rounded), label: 'Settings'),
+      // ----------- BottomNavigationBar with Enroll button -----------
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Enroll button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            child: SizedBox(
+              height: 48,
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: enrollStudent,
+                child: const Text(
+                  "Enroll",
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // BottomNavigationBar
+          BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: const Color(0xFF1565C0),
+            unselectedItemColor: Colors.grey,
+            currentIndex: 1,
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            selectedIconTheme: const IconThemeData(size: 24),
+            unselectedIconTheme: const IconThemeData(size: 24),
+            onTap: (index) {
+              if (index == 0) {
+                Navigator.pushReplacementNamed(context, '/dashboard');
+              } else if (index == 1) {
+                // Stay on Enrollment
+              } else if (index == 2) {
+                Navigator.pushReplacementNamed(context, '/reports');
+              } else if (index == 3) {
+                Navigator.pushReplacementNamed(context, '/settings');
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.settings_rounded), label: 'Settings'),
+            ],
+          ),
         ],
       ),
     );
