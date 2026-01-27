@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(100) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'superadmin') NOT NULL DEFAULT 'admin',
+    profile_image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -46,8 +48,8 @@ CREATE TABLE IF NOT EXISTS subjects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(20) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
-    image_url VARCHAR(255),  -- Optional image for the subject
-    lecturer_id INT NOT NULL,  -- Assigned lecturer
+    image_url VARCHAR(255),
+    lecturer_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (lecturer_id) REFERENCES users(id)
@@ -55,7 +57,7 @@ CREATE TABLE IF NOT EXISTS subjects (
 """)
 
 # ----------------------
-# CLASSES TABLE (links lecturer & subject)
+# CLASSES TABLE
 # ----------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS classes (
@@ -69,7 +71,7 @@ CREATE TABLE IF NOT EXISTS classes (
 """)
 
 # ----------------------
-# STUDENTS TABLE (with face recognition token)
+# STUDENTS TABLE (without subject_id and face_token)
 # ----------------------
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS students (
@@ -77,11 +79,39 @@ CREATE TABLE IF NOT EXISTS students (
     name VARCHAR(100) NOT NULL,
     student_card_id VARCHAR(50) UNIQUE,
     course VARCHAR(100),
-    subject_id INT NOT NULL,
-    face_token VARCHAR(100) UNIQUE,
     face_image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+""")
+
+# ----------------------
+# STUDENT_FACES TABLE (for multiple photos per student)
+# ----------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS student_faces (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    face_token VARCHAR(100) UNIQUE NOT NULL,
+    face_image_url VARCHAR(255),
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(id)
+);
+""")
+
+
+# ----------------------
+# ENROLLMENTS TABLE (student-subject many-to-many)
+# ----------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS enrollments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (student_id, subject_id),
+    FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (subject_id) REFERENCES subjects(id)
 );
 """)
@@ -103,9 +133,59 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 """)
 
+
+# ----------------------
+# LOG TABLE
+# ----------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS logs (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    target_entity VARCHAR(50),
+    target_id INT,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+""")
+
+
+# ----------------------
+# INSERT SAMPLE SUPERADMIN
+# ----------------------
+import hashlib
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+superadmin_username = "superadmin"
+superadmin_email = "superadmin@system.com"
+superadmin_password = hash_password("123qwe")
+
+cursor.execute("""
+SELECT id FROM users WHERE username = %s
+""", (superadmin_username,))
+
+existing = cursor.fetchone()
+
+if not existing:
+    cursor.execute("""
+    INSERT INTO users (username, email, password, role)
+    VALUES (%s, %s, %s, %s)
+    """, (
+        superadmin_username,
+        superadmin_email,
+        superadmin_password,
+        "superadmin"
+    ))
+    print("Superadmin user created")
+else:
+    print("Superadmin already exists")
+
+
 db.commit()
 cursor.close()
 db.close()
 
-print("✅ Smart Attendance Database & Tables (Lecturer-only) created successfully!")
- 
+print("Smart Attendance Database created successfully!")

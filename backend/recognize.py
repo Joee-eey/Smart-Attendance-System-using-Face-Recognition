@@ -19,7 +19,7 @@ FACESET_TOKEN = os.getenv("FACESET_TOKEN")
 # Database config
 db_config = {
     'host': os.getenv('DB_HOST'),
-    'port': os.getenv('DB_PORT'),
+    'port': int(os.getenv('DB_PORT')),
     'user': os.getenv('DB_USERNAME'),
     'password': os.getenv('DB_PASSWORD'),
     'database': os.getenv('DB_DATABASE')
@@ -45,57 +45,47 @@ def recognize_face():
         return jsonify({"error": "No class_id provided"}), 400
 
     try:
-        class_id = int(class_id)  # convert to int
+        class_id = int(class_id)
     except ValueError:
         return jsonify({"error": "Invalid class_id"}), 400
 
     conn = None
     cursor = None
     try:
-        # 1: Save image temporarily
+        # Save temp image
         os.makedirs("uploads", exist_ok=True)
         temp_path = "uploads/temp_recognize.jpg"
         image.save(temp_path)
-        print(f"[DEBUG] Image received and saved to {temp_path}", flush=True)
 
-        # 1: Resize the image to max 1024x1024
-        max_size = (1024, 1024)
+        # Resize image to max 1024x1024
         img = Image.open(temp_path)
-        img.thumbnail(max_size, Image.Resampling.LANCZOS)
+        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
         img.save(temp_path, format="JPEG", quality=85)
-        print(f"[DEBUG] Image resized to {img.size}", flush=True)
 
-        # 2: Detect faces
+        # Detect faces
         with open(temp_path, "rb") as img_file:
             detect_res = requests.post(
                 DETECT_URL,
                 data={"api_key": FACEPP_API_KEY, "api_secret": FACEPP_API_SECRET},
-                files={"image_file": img_file},
+                files={"image_file": img_file}
             )
-            print(f"[DEBUG] Face++ status: {detect_res.status_code}, content: {detect_res.text}", flush=True)
+            detect_data = detect_res.json()
 
-            if detect_res.status_code != 200 or not detect_res.text:
-                return jsonify({"error": "Face++ API did not return valid response"}), 500
-
-            try:
-                detect_data = detect_res.json()
-            except ValueError as ve:
-                print(f"[ERROR] Invalid JSON: {ve}", flush=True)
-                return jsonify({"error": "Face++ API returned invalid JSON"}), 500
+        print("===== FACE++ DETECT RESPONSE =====")
+        print(detect_data)
+        print("=================================")
 
         if "faces" not in detect_data or not detect_data["faces"]:
             return jsonify({"error": "No face detected"}), 400
 
         results_list = []
 
-        # 3: Open DB connection once
+        # DB connection
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # 4: Loop through all detected faces
         for face in detect_data["faces"]:
             face_token = face["face_token"]
-            print(f"[DEBUG] Detected face_token: {face_token}", flush=True)
 
             # Search in faceset
             search_res = requests.post(
@@ -107,46 +97,53 @@ def recognize_face():
                     "face_token": face_token
                 }
             )
-            try:
-                search_data = search_res.json()
-            except ValueError:
-                results_list.append({"error": "Face++ search returned invalid JSON"})
-                continue
+            search_data = search_res.json()
 
-            print(f"[DEBUG] Face++ Search Response: {search_data}", flush=True)
+            print("===== FACE++ SEARCH RESPONSE =====")
+            print(search_data)
+            print("=================================")
 
             if "results" not in search_data or not search_data["results"]:
+                print("[WARN] Face not recognized")
                 results_list.append({"error": "Face not recognized"})
                 continue
 
-            result = search_data["results"][0]
-            matched_token = result["face_token"]
-            confidence = result["confidence"]
+            match = search_data["results"][0]
+            matched_token = match["face_token"]
+            confidence = match["confidence"]
 
-            if confidence < 80:
+            if confidence < 70:
                 results_list.append({"error": "Low confidence match"})
                 continue
 
-            # Match student in DB
-            cursor.execute(
-                "SELECT id, name FROM students WHERE face_token = %s",
-                (matched_token,)
-            )
+            # Find student enrolled in this class
+            cursor.execute("""
+                SELECT s.id, s.name, s.course
+                FROM students s
+                JOIN student_faces sf ON s.id = sf.student_id
+                JOIN enrollments e ON s.id = e.student_id
+                JOIN classes c ON e.subject_id = c.subject_id
+                WHERE sf.face_token = %s
+                AND c.id = %s
+            """, (matched_token, class_id))
+
             student = cursor.fetchone()
             if not student:
                 results_list.append({"error": "Student not found"})
                 continue
 
-            # Check if attendance already exists today
+            # Check if attendance exists today
             cursor.execute("""
-                SELECT id FROM attendance 
+                SELECT id FROM attendance
                 WHERE class_id = %s AND student_id = %s AND DATE(date) = %s
             """, (class_id, student["id"], date.today()))
             existing = cursor.fetchone()
 
             if existing:
                 results_list.append({
+                    "id": student["id"],
                     "name": student["name"],
+                    "course": student["course"],
                     "status": "present",
                     "message": "Attendance already recorded",
                     "confidence": confidence
@@ -155,12 +152,14 @@ def recognize_face():
                 # Insert attendance
                 cursor.execute("""
                     INSERT INTO attendance (class_id, student_id, date, status)
-                    VALUES (%s, %s, %s, %s)
-                """, (class_id, student["id"], date.today(), "present"))
-
+                    VALUES (%s, %s, %s, 'present')
+                """, (class_id, student["id"], date.today()))
                 conn.commit()
+
                 results_list.append({
+                    "id": student["id"],
                     "name": student["name"],
+                    "course": student["course"],
                     "status": "present",
                     "confidence": confidence
                 })
@@ -168,15 +167,12 @@ def recognize_face():
         return jsonify(results_list), 200
 
     except mysql.connector.Error as db_err:
-        print(f"[ERROR] Database Error: {db_err}", flush=True)
         return jsonify({"error": str(db_err)}), 500
 
     except requests.RequestException as req_err:
-        print(f"[ERROR] Face++ API Error: {req_err}", flush=True)
         return jsonify({"error": "Face++ API error occurred"}), 500
 
     except Exception as e:
-        print(f"[ERROR] General Error: {e}", flush=True)
         return jsonify({"error": str(e)}), 500
 
     finally:
@@ -184,4 +180,3 @@ def recognize_face():
             cursor.close()
         if conn and conn.is_connected():
             conn.close()
-            print("[DEBUG] DB connection closed", flush=True)

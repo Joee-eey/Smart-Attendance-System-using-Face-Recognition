@@ -67,6 +67,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
   // Store captured or picked image for preview
   XFile? _capturedImage; 
 
+  // Store multiple picked images (gallery long press)
+  List<XFile> _pickedImages = [];
+
   double _currentZoom = 1.0;
   double _minZoom = 1.0;
   double _maxZoom = 1.0;  
@@ -147,7 +150,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  void _pickImageFromGallery() async {
+  void _pickSingleImage() async {
     try {
       final picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -161,6 +164,33 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
+  void _pickMultipleImages() async {
+  try {
+    final picker = ImagePicker();
+    final List<XFile> images = await picker.pickMultiImage();
+
+    if (images.isNotEmpty && mounted) {
+      _pickedImages = images;
+
+      // Dispose camera before navigating
+      await _controller?.dispose();
+      _controller = null;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EnrollmentPage(
+            imagePaths: images.map((e) => e.path).toList(),
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    debugPrint("Error picking multiple images: $e");
+  }
+}
+
+
   // CONFIRM IMAGE FUNCTION
   void _confirmImage() async {
     if (_capturedImage == null) return;
@@ -168,15 +198,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
     await _controller?.dispose();
     _controller = null;
 
-    if (!mounted) return;
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => EnrollmentPage(imagePath: _capturedImage!.path),
+        builder: (context) => EnrollmentPage(
+          imagePaths: [_capturedImage!.path],
+        ),
       ),
     );
   }
+
 
   void _retakeImage() {
     setState(() {
@@ -435,7 +466,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             left: 40,
             bottom: 18,
             child: GestureDetector(
-              onTap: _pickImageFromGallery,
+              onTap: _pickMultipleImages,
               child: Stack(
                 alignment: Alignment.center,
                 children: [

@@ -456,7 +456,7 @@ class _ScanAttendanceState extends State<ScanAttendance> {
   Widget _buildPreview() {
     return Stack(
       children: [
-        SizedBox.expand(child: Image.file(File(_capturedImage!.path), fit: BoxFit.cover)),
+        SizedBox.expand(child: Image.file(File(_capturedImage!.path), fit: BoxFit.contain)),
         Positioned(top: 35, left: 16, child: GestureDetector(onTap: _retakeImage, child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28))),
         Positioned(
           bottom: 40,

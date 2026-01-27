@@ -586,8 +586,20 @@ class _AttendanceState extends State<Attendance> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(Icons.account_circle_rounded,
-                              size: 50, color: Color(0xFF9E9E9E)),
+                          // const Icon(Icons.account_circle_rounded,
+                          //     size: 50, color: Color(0xFF9E9E9E)),
+                          CircleAvatar(
+                            radius: 25, // same size as before
+                            backgroundColor: const Color(0xFF9E9E9E),
+                            backgroundImage: (record['face_image_url'] != null &&
+                                    record['face_image_url'].toString().isNotEmpty)
+                                ? NetworkImage(record['face_image_url'].toString())
+                                : null,
+                            child: (record['face_image_url'] == null ||
+                                    record['face_image_url'].toString().isEmpty)
+                                ? const Icon(Icons.account_circle_rounded, color: Colors.white, size: 30)
+                                : null,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(

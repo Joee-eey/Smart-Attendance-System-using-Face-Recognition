@@ -15,9 +15,10 @@ db_config = {
     'database': os.getenv('DB_DATABASE')
 }
 
+BASE_URL = os.environ.get("BASE_URL", "")
+
 def get_db_connection():
     return mysql.connector.connect(**db_config)
-
 
 @attendance_bp.route("/attendance", methods=["GET"])
 def get_attendance():
@@ -36,35 +37,39 @@ def get_attendance():
             return jsonify({"error": "Class not found"}), 404
         subject_id = class_row["subject_id"]
 
-        # Fetch students with their attendance (if any) for today
+        # Fetch students enrolled in this subject with their attendance for today
         cursor.execute("""
             SELECT 
-                a.id,
-                a.id,
+                s.id AS student_id,
                 s.name,
                 s.student_card_id,
                 s.course,
+                s.face_image_url,
                 DATE_FORMAT(a.created_at, '%h:%i %p') AS time,
                 a.date,
                 COALESCE(a.status, 'Absent') AS status
-            FROM students s
+            FROM enrollments e
+            JOIN students s ON e.student_id = s.id
             LEFT JOIN attendance a 
                 ON s.id = a.student_id 
+                AND a.class_id = %s
                 AND DATE(a.date) = CURDATE()
-            WHERE s.subject_id = %s
+            WHERE e.subject_id = %s
             ORDER BY 
                 CASE 
                     WHEN COALESCE(a.status, 'Absent') = 'Present' THEN 1
                     ELSE 2
                 END,
                 s.name ASC
-        """, (subject_id,))
+        """, (class_id, subject_id))
 
         records = cursor.fetchall()
 
-        # Log for debugging
-        print(f"[DEBUG] Attendance list for class {class_id}: {records}", flush=True)
+        for r in records:
+            if r.get("face_image_url"):
+                r["face_image_url"] = f"{BASE_URL}/{r['face_image_url']}"
 
+        # print(f"[DEBUG] Attendance list for class {class_id}: {records}", flush=True)
         return jsonify(records), 200
 
     except Exception as e:
@@ -75,7 +80,6 @@ def get_attendance():
         if 'conn' in locals() and conn.is_connected():
             cursor.close()
             conn.close()
-
 
 
 @attendance_bp.route("/attendance/summary", methods=["GET"])
@@ -96,20 +100,24 @@ def get_attendance_summary():
         subject_id = class_row["subject_id"]
 
         # Count how many students are enrolled in this subject
-        cursor.execute("SELECT COUNT(*) AS total_students FROM students WHERE subject_id = %s", (subject_id,))
+        cursor.execute("""
+            SELECT COUNT(*) AS total_students
+            FROM enrollments e
+            WHERE e.subject_id = %s
+        """, (subject_id,))
         total_row = cursor.fetchone()
         total_students = total_row["total_students"]
 
-        # Count how many are present today (from attendance)
+        # Count how many are present today for this class
         cursor.execute("""
-            SELECT COUNT(DISTINCT student_id) AS present_count
-            FROM attendance
-            WHERE LOWER(status) = 'present' 
-              AND DATE(date) = CURDATE()
-              AND student_id IN (
-                  SELECT id FROM students WHERE subject_id = %s
-              )
-        """, (subject_id,))
+            SELECT COUNT(DISTINCT a.student_id) AS present_count
+            FROM attendance a
+            JOIN enrollments e ON a.student_id = e.student_id
+            WHERE a.class_id = %s
+              AND DATE(a.date) = CURDATE()
+              AND e.subject_id = %s
+              AND LOWER(a.status) = 'present'
+        """, (class_id, subject_id))
         present_row = cursor.fetchone()
         present_count = present_row["present_count"]
 
@@ -133,10 +141,6 @@ def get_attendance_summary():
             conn.close()
 
 
-
-
-
-# ⭐⭐⭐ NEW ROUTE: DELETE ATTENDANCE RECORD ⭐⭐⭐
 @attendance_bp.route('/attendance/<int:attendance_id>', methods=['DELETE'])
 def delete_attendance(attendance_id):
     conn = None

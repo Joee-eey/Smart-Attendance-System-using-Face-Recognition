@@ -8,6 +8,8 @@ from dashboard import dashboard_bp
 from enroll import enroll_bp
 from recognize import recognize_bp
 from attendance import attendance_bp
+from flask import send_from_directory
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -19,6 +21,11 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(enroll_bp)
 app.register_blueprint(recognize_bp)
 app.register_blueprint(attendance_bp)
+
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    uploads_dir = os.path.join(os.getcwd(), "uploads")
+    return send_from_directory(uploads_dir, filename)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

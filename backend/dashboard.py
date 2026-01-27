@@ -1,10 +1,11 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_from_directory
 import requests
 from datetime import datetime
 import random
 import mysql.connector
 import os
 from dotenv import load_dotenv
+
 
 dashboard_bp = Blueprint('dashboard', __name__)
 load_dotenv()
@@ -313,4 +314,133 @@ def delete_student(student_id):
     finally:
         if conn and conn.is_connected():
             cursor.close()
+            conn.close()
+
+
+
+@dashboard_bp.route("/enrollment/bulk", methods=["POST"])
+def bulk_enroll_students():
+    data = request.json
+    student_ids = data.get("student_ids", [])
+    subject_id = data.get("folder_id")
+
+    if not student_ids or not subject_id:
+        return jsonify({"error": "Invalid data"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    sql = """
+        INSERT IGNORE INTO enrollments (student_id, subject_id)
+        VALUES (%s, %s)
+    """
+
+    values = [(sid, subject_id) for sid in student_ids]
+    cursor.executemany(sql, values)
+    conn.commit()
+
+    return jsonify({
+        "message": f"{cursor.rowcount} students enrolled"
+    }), 200
+
+
+@dashboard_bp.route("/uploads/<filename>")
+def uploaded_file(filename):
+    uploads_dir = os.path.join(os.getcwd(), "uploads")
+    return send_from_directory(uploads_dir, filename)
+
+@dashboard_bp.route("/students", methods=["GET"])
+def get_students():
+    keyword = request.args.get("search", "").strip()
+    subject_id = request.args.get("subject_id", type=int)  # optional filter by subject
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Base SQL to get students with their primary face image
+        sql = """
+            SELECT s.id, s.name, s.student_card_id, s.course,
+                   sf.face_image_url AS face_image_url
+            FROM students s
+            LEFT JOIN student_faces sf 
+                   ON sf.student_id = s.id AND sf.is_primary = TRUE
+        """
+        params = []
+
+        # Add search filter if keyword provided
+        if keyword:
+            sql += " WHERE s.name LIKE %s OR s.student_card_id LIKE %s"
+            like_keyword = f"%{keyword}%"
+            params.extend([like_keyword, like_keyword])
+
+        sql += " ORDER BY s.name ASC LIMIT 50"
+        cursor.execute(sql, params)
+        students = cursor.fetchall()
+
+        # Convert local file paths to full URLs for Flutter
+        for student in students:
+            if student['face_image_url']:
+                student['face_image_url'] = request.host_url.rstrip("/") + "/uploads/" + os.path.basename(student['face_image_url'])
+            else:
+                student['face_image_url'] = None
+
+        # If subject_id provided, mark enrolled students
+        if subject_id:
+            cursor.execute(
+                "SELECT student_id FROM enrollments WHERE subject_id = %s", (subject_id,)
+            )
+            enrolled_ids = {row['student_id'] for row in cursor.fetchall()}
+
+            for student in students:
+                student['enrolled'] = student['id'] in enrolled_ids
+
+        return jsonify(students), 200
+
+    except mysql.connector.Error as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if 'conn' in locals() and conn.is_connected():
+            cursor.close()
+            conn.close()
+
+
+@dashboard_bp.route("/remove_student", methods=["POST"])
+def remove_student():
+    student_id = request.json.get("student_id")
+    subject_id = request.json.get("subject_id")
+
+    if not student_id or not subject_id:
+        return jsonify({"error": "Missing student_id or subject_id"}), 400
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Delete from enrollments
+        cursor.execute("""
+            DELETE FROM enrollments
+            WHERE student_id = %s AND subject_id = %s
+        """, (student_id, subject_id))
+
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Enrollment not found"}), 404
+
+        conn.commit()
+        return jsonify({"message": "Student removed from subject successfully"}), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"[ERROR] Failed to remove student: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
             conn.close()

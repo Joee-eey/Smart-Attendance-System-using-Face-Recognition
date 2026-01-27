@@ -2,7 +2,10 @@ from flask import Blueprint, request, jsonify
 import mysql.connector
 import requests
 import os
+import time
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from PIL import Image
 
 enroll_bp = Blueprint('enroll', __name__)
 load_dotenv()
@@ -31,109 +34,141 @@ def get_db_connection():
         database=db_config['database']
     )
 
+
 @enroll_bp.route("/enroll", methods=["POST"])
 def enroll():
     name = request.form.get("name")
     student_card_id = request.form.get("student_card_id")
     course = request.form.get("course")
-    # subject_id = request.form.get("subject_id") 
-    image = request.files.get("image")
+    images = request.files.getlist("images")
+    primary_index = int(request.form.get("primary_index", 0))
 
-    # Check required fields
-    if not all([name, student_card_id, course, image]):
+    if not all([name, student_card_id, course]) or not images:
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
-        # 1: Save image locally
         os.makedirs("uploads", exist_ok=True)
-        image_path = f"uploads/{student_card_id}.jpg"
-        image.save(image_path)
-        print(f"[DEBUG] Image saved at: {image_path}", flush=True)
 
-        # 2: Detect face with Face++
-        with open(image_path, "rb") as img_file:
-            face_response = requests.post(
-                DETECT_URL,
-                data={
-                    "api_key": FACEPP_API_KEY,
-                    "api_secret": FACEPP_API_SECRET,
-                },
-                files={"image_file": img_file},
-            )
-        face_data = face_response.json()
-        print(f"[DEBUG] Face++ detect response: {face_data}", flush=True)
+        # Retry helper
+        def retry_request(func, retries=3, delay=2, *args, **kwargs):
+            for attempt in range(1, retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(f"[WARN] Attempt {attempt} failed: {e}")
+                    if attempt < retries:
+                        time.sleep(delay)
+                    else:
+                        return None
 
-        if "faces" not in face_data or not face_data["faces"]:
-            return jsonify({"error": "No face detected"}), 400
+        # Function to process a single image
+        def process_image(index, image_file):
+            image_path = f"uploads/{student_card_id}_{index}.jpg"
+            image_file.save(image_path)
 
-        face_token = face_data["faces"][0]["face_token"]
-        print(f"[DEBUG] Detected face_token: {face_token}", flush=True)
+            # Resize/compress image to reduce size and avoid timeout
+            try:
+                img = Image.open(image_path)
+                img.thumbnail((1024, 1024))  # Max width/height = 1024px
+                img.save(image_path, "JPEG", quality=85)
+            except Exception as e:
+                print(f"[ERROR] Failed to resize {image_path}: {e}")
+                return None
 
-        # 3: Add this face_token to your FaceSet
-        add_face_response = requests.post(
-            "https://api-us.faceplusplus.com/facepp/v3/faceset/addface",
-            data={
-                "api_key": FACEPP_API_KEY,
-                "api_secret": FACEPP_API_SECRET,
-                "faceset_token": FACESET_TOKEN,
-                "face_tokens": face_token
-            },
-        )
-        add_face_data = add_face_response.json()
-        print(f"[DEBUG] Add Face++ response: {add_face_data}", flush=True)
+            # 1️⃣ Detect face
+            def detect_face():
+                with open(image_path, "rb") as img_file:
+                    resp = requests.post(
+                        DETECT_URL,
+                        data={"api_key": FACEPP_API_KEY, "api_secret": FACEPP_API_SECRET},
+                        files={"image_file": img_file},
+                        timeout=(10, 120)  # 10s connect, 120s read
+                    )
+                data = resp.json()
+                if resp.status_code != 200 or "faces" not in data or not data["faces"]:
+                    raise Exception(f"No faces detected: {data}")
+                return data["faces"][0]["face_token"]
 
-        # Check if adding to faceset failed
-        if "face_added" in add_face_data and add_face_data["face_added"] == 0:
-            return jsonify({"error": "Failed to add face to FaceSet"}), 400
+            face_token = retry_request(detect_face, retries=3, delay=2)
+            if not face_token:
+                print(f"[ERROR] Face detection failed for {image_path}")
+                return None
 
-        # 4: Insert student data into MySQL
+            # 2️⃣ Add face to FaceSet
+            def add_face():
+                resp = requests.post(
+                    "https://api-us.faceplusplus.com/facepp/v3/faceset/addface",
+                    data={
+                        "api_key": FACEPP_API_KEY,
+                        "api_secret": FACEPP_API_SECRET,
+                        "faceset_token": FACESET_TOKEN,
+                        "face_tokens": face_token,
+                    },
+                    timeout=10
+                )
+                data = resp.json()
+                if resp.status_code != 200 or data.get("error_message"):
+                    raise Exception(f"Face++ addface failed: {data}")
+                return True
+
+            added = retry_request(add_face, retries=3, delay=2)
+            if not added:
+                print(f"[ERROR] Failed to add face to FaceSet for {image_path}")
+                return None
+
+            return {"index": index, "image_path": image_path, "face_token": face_token}
+
+        # 3️⃣ Process all images in parallel
+        results = []
+        with ThreadPoolExecutor(max_workers=min(4, len(images))) as executor:
+            futures = [executor.submit(process_image, idx, img) for idx, img in enumerate(images)]
+            for future in as_completed(futures):
+                res = future.result()
+                if res:
+                    results.append(res)
+
+        # Fail if any image failed
+        if len(results) != len(images):
+            return jsonify({"error": "Face detection/addface failed for one or more images"}), 400
+
+        # 4️⃣ Insert student + faces in a transaction
         conn = get_db_connection()
-        cursor = conn.cursor()
-        sql = """
-            INSERT INTO students (name, student_card_id, course, face_token, face_image_url)
-            VALUES (%s, %s, %s, %s, %s)
-        """
-        cursor.execute(sql, (name, student_card_id, course, face_token, image_path))
+        cursor = conn.cursor(buffered=True)
+
+        cursor.execute("""
+            INSERT INTO students (name, student_card_id, course)
+            VALUES (%s, %s, %s)
+        """, (name, student_card_id, course))
+        student_id = cursor.lastrowid
+        print(f"[INFO] Inserted student_id: {student_id}")
+
+        primary_image_url = None
+        for res in results:
+            is_primary_int = 1 if res["index"] == primary_index else 0
+            cursor.execute("""
+                INSERT INTO student_faces (student_id, face_token, face_image_url, is_primary)
+                VALUES (%s, %s, %s, %s)
+            """, (student_id, res["face_token"], res["image_path"], is_primary_int))
+            print(f"[INFO] Inserted student_face for {res['image_path']}")
+            if res["index"] == primary_index:
+                primary_image_url = res["image_path"]
+
+        if primary_image_url:
+            cursor.execute("""
+                UPDATE students SET face_image_url = %s WHERE id = %s
+            """, (primary_image_url, student_id))
+
         conn.commit()
-        print("[DEBUG] Student inserted successfully into DB", flush=True)
-
-        return jsonify({
-            "message": "Student enrolled successfully",
-            "face_token": face_token
-        }), 201
-
-    except mysql.connector.Error as db_err:
-        print(f"[ERROR] Database Error: {db_err}", flush=True)
-        return jsonify({"error": str(db_err)}), 500
-
-    except requests.RequestException as req_err:
-        print(f"[ERROR] Face++ API Error: {req_err}", flush=True)
-        return jsonify({"error": "Face++ API error occurred"}), 500
+        return jsonify({"message": "Student enrolled successfully"}), 201
 
     except Exception as e:
-        print(f"[ERROR] General Error: {e}", flush=True)
+        if 'conn' in locals():
+            conn.rollback()
+        print(f"[ERROR] Enrollment failed: {e}")
         return jsonify({"error": str(e)}), 500
 
     finally:
-        # Close DB connection safely
-        if 'conn' in locals() and conn.is_connected():
+        if 'cursor' in locals() and cursor:
             cursor.close()
+        if 'conn' in locals() and conn:
             conn.close()
-            print("[DEBUG] DB connection closed", flush=True)
-
-
-# @enroll_bp.route("/subjects", methods=["GET"])  
-# def get_subjects():
-#     try:
-#         conn = get_db_connection()
-#         cursor = conn.cursor(dictionary=True)
-#         cursor.execute("SELECT id, name FROM subjects")
-#         subjects = cursor.fetchall()
-#         return jsonify(subjects), 200
-#     except Exception as e:
-#         print(e)
-#         return jsonify({"error": "Failed to fetch subjects"}), 500
-#     finally:
-#         if 'conn' in locals() and conn.is_connected():
-#             cursor.close()
-#             conn.close()

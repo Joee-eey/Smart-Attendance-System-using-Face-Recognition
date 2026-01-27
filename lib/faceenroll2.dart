@@ -9,9 +9,10 @@ import 'dart:developer';
 import 'package:userinterface/faceenroll.dart';
 
 class EnrollmentPage extends StatefulWidget {
-  final String imagePath;
+  // final String imagePath;
+  final List<String> imagePaths;
 
-  const EnrollmentPage({super.key, required this.imagePath});
+  const EnrollmentPage({super.key, required this.imagePaths});
 
   @override
   State<EnrollmentPage> createState() => _EnrollmentPageState();
@@ -20,6 +21,7 @@ class EnrollmentPage extends StatefulWidget {
 class _EnrollmentPageState extends State<EnrollmentPage> {
   String? selectedSubjectId;
   List<Map<String, dynamic>> subjects = [];
+  int _currentImageIndex = 0;
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController idController = TextEditingController();
@@ -28,7 +30,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   @override
   void initState() {
     super.initState();
-    fetchSubjects();
+    // fetchSubjects();
   }
 
   @override
@@ -40,28 +42,28 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   // ---------- FETCH SUBJECTS FROM BACKEND ----------
-  Future<void> fetchSubjects() async {
-    try {
-      final baseUrl = dotenv.env['BASE_URL'] ?? '';
-      if (baseUrl.isEmpty) return;
+  // Future<void> fetchSubjects() async {
+  //   try {
+  //     final baseUrl = dotenv.env['BASE_URL'] ?? '';
+  //     if (baseUrl.isEmpty) return;
 
-      var uri = Uri.parse('$baseUrl/subjects');
-      var response = await http.get(uri);
+  //     var uri = Uri.parse('$baseUrl/subjects');
+  //     var response = await http.get(uri);
 
-      log("Subjects API Response (${response.statusCode}): ${response.body}");
+  //     log("Subjects API Response (${response.statusCode}): ${response.body}");
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          subjects = data.cast<Map<String, dynamic>>();
-        });
-      } else {
-        log("Failed to fetch subjects: ${response.statusCode}");
-      }
-    } catch (e, stackTrace) {
-      log("Error fetching subjects", error: e, stackTrace: stackTrace);
-    }
-  }
+  //     if (response.statusCode == 200) {
+  //       final List<dynamic> data = jsonDecode(response.body);
+  //       setState(() {
+  //         subjects = data.cast<Map<String, dynamic>>();
+  //       });
+  //     } else {
+  //       log("Failed to fetch subjects: ${response.statusCode}");
+  //     }
+  //   } catch (e, stackTrace) {
+  //     log("Error fetching subjects", error: e, stackTrace: stackTrace);
+  //   }
+  // }
 
   // ----------- ENROLL STUDENT FUNCTION -------------
   Future<void> enrollStudent() async {
@@ -92,13 +94,29 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       request.fields["name"] = nameController.text;
       request.fields["student_card_id"] = idController.text;
       request.fields["course"] = courseController.text;
+      request.fields["primary_index"] = _currentImageIndex.toString();
 
-      if (File(widget.imagePath).existsSync()) {
-        request.files.add(await http.MultipartFile.fromPath(
-          "image",
-          widget.imagePath,
-          filename: path.basename(widget.imagePath),
-        ));
+      // if (File(widget.imagePath).existsSync()) {
+      //   request.files.add(await http.MultipartFile.fromPath(
+      //     "image",
+      //     widget.imagePath,
+      //     filename: path.basename(widget.imagePath),
+      //   ));
+      // }
+
+      if (widget.imagePaths.isNotEmpty) {
+        for (var imagePath in widget.imagePaths) {
+          final file = File(imagePath);
+          log("Sending file: $imagePath, exists: ${file.existsSync()}, size: ${file.existsSync() ? file.lengthSync() : 0} bytes");
+
+          if (file.existsSync()) {
+            request.files.add(await http.MultipartFile.fromPath(
+              "images", // must match backend getlist("images")
+              imagePath,
+              filename: path.basename(imagePath),
+            ));
+          }
+        }
       }
 
       var response = await request.send();
@@ -232,22 +250,63 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const Enrollment()),
+                    );
+                  },
                 ),
                 const SizedBox(height: 0),
                 // Profile Image Preview
                 Center(
-                  child: CircleAvatar(
-                    radius: 120,
-                    backgroundColor: const Color(0xFF1565C0),
-                    backgroundImage: File(widget.imagePath).existsSync()
-                        ? FileImage(File(widget.imagePath))
-                        : null,
-                    child: !File(widget.imagePath).existsSync()
+                  child: Container(
+                    width: 240,
+                    height: 240,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF1565C0),
+                    ),
+                    child: widget.imagePaths.isEmpty
                         ? const Icon(Icons.person, color: Colors.white, size: 100)
-                        : null,
+                        : ClipOval(
+                            child: PageView.builder(
+                              itemCount: widget.imagePaths.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentImageIndex = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                return Image.file(
+                                  File(widget.imagePaths[index]),
+                                  fit: BoxFit.cover,
+                                );
+                              },
+                            ),
+                          ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                // 🔵 Swipe indicator dots
+                if (widget.imagePaths.length > 1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(widget.imagePaths.length, (index) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: _currentImageIndex == index ? 12 : 8,
+                        height: _currentImageIndex == index ? 12 : 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _currentImageIndex == index
+                              ? const Color(0xFF1565C0)
+                              : Colors.grey,
+                        ),
+                      );
+                    }),
+                  ),
+
                 const SizedBox(height: 20),
                 // Student Details
                 SizedBox(
