@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     role ENUM('admin', 'superadmin') NOT NULL DEFAULT 'admin',
+    auth_provider ENUM('email', 'google', 'microsoft') NOT NULL DEFAULT 'email',
     profile_image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -149,40 +150,6 @@ CREATE TABLE IF NOT EXISTS logs (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 """)
-
-
-# ----------------------
-# INSERT SAMPLE SUPERADMIN
-# ----------------------
-import hashlib
-
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-superadmin_username = "superadmin"
-superadmin_email = "superadmin@system.com"
-superadmin_password = hash_password("123qwe")
-
-cursor.execute("""
-SELECT id FROM users WHERE username = %s
-""", (superadmin_username,))
-
-existing = cursor.fetchone()
-
-if not existing:
-    cursor.execute("""
-    INSERT INTO users (username, email, password, role)
-    VALUES (%s, %s, %s, %s)
-    """, (
-        superadmin_username,
-        superadmin_email,
-        superadmin_password,
-        "superadmin"
-    ))
-    print("Superadmin user created")
-else:
-    print("Superadmin already exists")
-
 
 db.commit()
 cursor.close()

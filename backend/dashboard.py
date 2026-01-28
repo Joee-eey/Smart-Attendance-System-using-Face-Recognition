@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, jsonify, request, send_from_directory, session
 import requests
 from datetime import datetime
 import random
@@ -28,6 +28,15 @@ def get_db_connection():
     )
 
 
+def insert_log(conn, user_id, action_type, target_entity, target_id=None, description=None):
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO logs (user_id, action_type, target_entity, target_id, description)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (user_id, action_type, target_entity, target_id, description))
+    conn.commit()
+    cursor.close()
+
 @dashboard_bp.route('/subjects', methods=['GET', 'POST'])
 def handle_subjects():
     conn = None
@@ -39,28 +48,42 @@ def handle_subjects():
         if request.method == 'POST':
             data = request.get_json()
             folder_name = data.get('name')
+            user_id = data.get('user_id')  # <-- get it from Flutter request
 
-            if not folder_name:
-                return jsonify({'message': 'Folder name is required'}), 400
-            
-            # Generate Random Code
+            if not folder_name or not user_id:
+                return jsonify({'message': 'Folder name and user_id are required'}), 400
+
+            # Generate random code
             clean_name = folder_name.replace(" ", "")[:3].upper()
-            if len(clean_name) < 3: clean_name = "SUB"
+            if len(clean_name) < 3:
+                clean_name = "SUB"
             random_num = random.randint(1000, 9999)
             generated_code = f"{clean_name}-{random_num}"
 
-            # Set Default Lecturer ID
-            default_lecturer_id = 1
-
-            # Insert name, code, AND lecturer_id
+            # Insert into database
             query = """
                 INSERT INTO subjects (name, code, lecturer_id, created_at) 
                 VALUES (%s, %s, %s, NOW())
             """
-            cursor.execute(query, (folder_name, generated_code, default_lecturer_id))
+            cursor.execute(query, (folder_name, generated_code, user_id))
             conn.commit()
 
-            return jsonify({'message': 'Folder created successfully', 'id': cursor.lastrowid}), 201
+            subject_id = cursor.lastrowid
+            cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+            user_row = cursor.fetchone()
+            user_name = user_row['username'] if user_row else f"User ID {user_id}"
+
+            # Insert log
+            insert_log(
+                conn=conn,
+                user_id=user_id,
+                action_type="CREATE",
+                target_entity="subjects",
+                target_id=subject_id,
+                description=f"{user_name} created subject '{folder_name}'"
+            )
+
+            return jsonify({'message': 'Folder created successfully', 'id': subject_id}), 201
 
 
         cursor.execute("SELECT id, name, created_at FROM subjects ORDER BY name ASC")
@@ -85,7 +108,6 @@ def handle_subjects():
             cursor.close()
             conn.close()
 
-
 @dashboard_bp.route('/subjects/<int:subject_id>/files', methods=['GET', 'POST'])
 def handle_subject_files(subject_id):
     conn = None
@@ -93,26 +115,44 @@ def handle_subject_files(subject_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-
         # Handle Creating a New File (POST)
         if request.method == 'POST':
+            # Get user_id from query parameters
+            user_id = request.args.get('user_id', type=int)
+
             data = request.get_json()
             file_name = data.get('name') 
             
             if not file_name:
                 return jsonify({'message': 'File name is required'}), 400
+            if not user_id:
+                return jsonify({'message': 'User ID is required'}), 400
 
+            # Insert file
             query = """
                 INSERT INTO classes (subject_id, schedule, created_at) 
                 VALUES (%s, %s, NOW())
             """
             cursor.execute(query, (subject_id, file_name))
             conn.commit()
+            class_id = cursor.lastrowid
 
-            return jsonify({'message': 'File created successfully', 'id': cursor.lastrowid}), 201
+            cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+            user_row = cursor.fetchone()
+            user_name = user_row['username'] if user_row else f"User ID {user_id}"
 
+            # Insert log
+            insert_log(
+                conn=conn,
+                user_id=user_id,
+                action_type="CREATE",
+                target_entity="classes",
+                target_id=class_id,
+                description=f"{user_name} created class '{file_name}' in subject ID {subject_id}"
+            )
 
-        # Fetch files for the given subject_id
+            return jsonify({'message': 'File created successfully', 'id': class_id}), 201
+
         cursor.execute("""
             SELECT id, schedule, created_at 
             FROM classes
@@ -146,24 +186,43 @@ def handle_subject_files(subject_id):
 def update_subject(subject_id):
     conn = None
     try:
-        print(f"Received UPDATE request for Subject ID: {subject_id}") # ⭐ DEBUG PRINT
+        print(f"Received UPDATE request for Subject ID: {subject_id}")  # ⭐ DEBUG PRINT
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
         data = request.get_json()
         new_name = data.get('name')
+        user_id = data.get('user_id')  # <-- pass this from Flutter app just like in createFolder
 
-        if not new_name:
-            return jsonify({'message': 'Name is required'}), 400
+        if not new_name or not user_id:
+            return jsonify({'message': 'Name and user_id are required'}), 400
+
+        # Fetch current name for logging
+        cursor.execute("SELECT name FROM subjects WHERE id = %s", (subject_id,))
+        old_subject = cursor.fetchone()
+        if not old_subject:
+            return jsonify({'message': 'Folder not found'}), 404
+
+        old_name = old_subject['name']
 
         # Update the name in the database
         cursor.execute("UPDATE subjects SET name = %s WHERE id = %s", (new_name, subject_id))
         conn.commit()
 
-        print(f"Rows affected: {cursor.rowcount}") # DEBUG PRINT
+        print(f"Rows affected: {cursor.rowcount}")  # DEBUG PRINT
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user_row = cursor.fetchone()
+        user_name = user_row['username'] if user_row else f"User ID {user_id}"
 
-        if cursor.rowcount == 0:
-            return jsonify({'message': 'Folder not found'}), 404
+        # Insert log for update
+        insert_log(
+            conn=conn,
+            user_id=user_id,
+            action_type="UPDATE",
+            target_entity="subjects",
+            target_id=subject_id,
+            description=f"{user_name} updated subject name from '{old_name}' to '{new_name}'"
+        )
 
         return jsonify({'message': 'Folder updated successfully'}), 200
 
@@ -180,28 +239,47 @@ def update_subject(subject_id):
 def update_class(class_id):
     conn = None
     try:
-        print(f"Received UPDATE request for Class ID: {class_id}") # DEBUG PRINT
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
+        user_id = request.args.get('user_id', type=int)
         data = request.get_json()
         new_name = data.get('name')
 
         if not new_name:
             return jsonify({'message': 'Name is required'}), 400
 
-        # Update the schedule (which acts as the file name) in the database
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Get old name for logging
+        cursor.execute("SELECT schedule FROM classes WHERE id = %s", (class_id,))
+        file = cursor.fetchone()
+        if not file:
+            return jsonify({'message': 'File not found'}), 404
+
+        old_name = file['schedule']
+
+        # Update file name
         cursor.execute("UPDATE classes SET schedule = %s WHERE id = %s", (new_name, class_id))
         conn.commit()
 
-        if cursor.rowcount == 0:
-            return jsonify({'message': 'File not found'}), 404
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user_row = cursor.fetchone()
+        user_name = user_row['username'] if user_row else f"User ID {user_id}"
+
+        # Insert log
+        insert_log(
+            conn=conn,
+            user_id=user_id,
+            action_type="UPDATE",
+            target_entity="classes",
+            target_id=class_id,
+            description=f"{user_name} renamed class from '{old_name}' to '{new_name}'"
+        )
 
         return jsonify({'message': 'File updated successfully'}), 200
 
-    except mysql.connector.Error as err:
-        print(f"Database Error: {err}")
-        return jsonify({'message': f'Database error: {err}'}), 500
+    except Exception as e:
+        print(f"Error updating file: {e}")
+        return jsonify({'message': str(e)}), 500
     finally:
         if conn and conn.is_connected():
             cursor.close()
@@ -213,21 +291,42 @@ def update_class(class_id):
 def delete_subject(subject_id):
     conn = None
     try:
-        print(f"Received DELETE request for Subject ID: {subject_id}")
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        user_id = request.args.get('user_id', type=int)
+        print(f"Received DELETE request for Subject ID: {subject_id} by User ID: {user_id}")
 
-        # Delete all files inside this folder first (to prevent errors)
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Get folder info for logging
+        cursor.execute("SELECT name FROM subjects WHERE id = %s", (subject_id,))
+        folder = cursor.fetchone()
+        if not folder:
+            return jsonify({'message': 'Folder not found'}), 404
+
+        folder_name = folder['name']
+
+        # Delete all files in folder
         cursor.execute("DELETE FROM classes WHERE subject_id = %s", (subject_id,))
-        
-        # Delete the folder itself
+        # Delete folder
         cursor.execute("DELETE FROM subjects WHERE id = %s", (subject_id,))
         conn.commit()
 
-        if cursor.rowcount == 0:
-            return jsonify({'message': 'Folder not found or already deleted'}), 404
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user_row = cursor.fetchone()
+        user_name = user_row['username'] if user_row else f"User ID {user_id}"
+
+        # Insert log
+        insert_log(
+            conn=conn,
+            user_id=user_id,
+            action_type="DELETE",
+            target_entity="subjects",
+            target_id=subject_id,
+            description=f"{user_name} deleted subject '{folder_name}'"
+        )
 
         return jsonify({'message': 'Folder deleted successfully'}), 200
+
     except Exception as e:
         print(f"Error deleting subject: {e}")
         return jsonify({'message': str(e)}), 500
@@ -237,22 +336,46 @@ def delete_subject(subject_id):
             conn.close()
 
 
+
 # DELETE FILE (DELETE)
 @dashboard_bp.route('/classes/<int:class_id>', methods=['DELETE'])
 def delete_class(class_id):
     conn = None
     try:
-        print(f"Received DELETE request for Class ID: {class_id}")
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        user_id = request.args.get('user_id', type=int)
+        print(f"Received DELETE request for Class ID: {class_id} by User ID: {user_id}")
 
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Get file info for logging
+        cursor.execute("SELECT schedule FROM classes WHERE id = %s", (class_id,))
+        file = cursor.fetchone()
+        if not file:
+            return jsonify({'message': 'File not found'}), 404
+
+        schedule_name = file['schedule']
+
+        # Delete file
         cursor.execute("DELETE FROM classes WHERE id = %s", (class_id,))
         conn.commit()
 
-        if cursor.rowcount == 0:
-            return jsonify({'message': 'File not found or already deleted'}), 404
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user_row = cursor.fetchone()
+        user_name = user_row['username'] if user_row else f"User ID {user_id}"
+
+        # Insert log
+        insert_log(
+            conn=conn,
+            user_id=user_id,
+            action_type="DELETE",
+            target_entity="classes",
+            target_id=class_id,
+            description=f"{user_name} deleted class '{schedule_name}'"
+        )
 
         return jsonify({'message': 'File deleted successfully'}), 200
+
     except Exception as e:
         print(f"Error deleting class: {e}")
         return jsonify({'message': str(e)}), 500
@@ -260,7 +383,6 @@ def delete_class(class_id):
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
-
 
 
 # DELETE: Removes from DB AND Face++ Cloud
@@ -315,7 +437,6 @@ def delete_student(student_id):
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
-
 
 
 @dashboard_bp.route("/enrollment/bulk", methods=["POST"])

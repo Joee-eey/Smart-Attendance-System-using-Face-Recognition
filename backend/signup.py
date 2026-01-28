@@ -25,6 +25,15 @@ def get_db_connection():
         database=db_config['database']
     )
 
+def insert_log(conn, user_id, action_type, target_entity, target_id=None, description=None):
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO logs (user_id, action_type, target_entity, target_id, description)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (user_id, action_type, target_entity, target_id, description))
+    conn.commit()
+    cursor.close()
+
 @signup_bp.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -54,7 +63,19 @@ def signup():
 
         sql = "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)"
         cursor.execute(sql, (username, email, hashed_password))
+        new_user_id = cursor.lastrowid
         conn.commit()
+        print(f"[INFO] New user created with ID: {new_user_id}")
+
+        # Insert log for new user signup (user_id = new_user_id)
+        insert_log(
+            conn=conn,
+            user_id=new_user_id,  # log as the new user
+            action_type="NEW_USER",
+            target_entity="users",
+            target_id=new_user_id,
+            description=f"{username} joined Cheese!"
+        )
 
         return jsonify({'message': 'User registered successfully'}), 201
 

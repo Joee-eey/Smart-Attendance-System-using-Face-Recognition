@@ -7,6 +7,7 @@ import 'package:userinterface/dashboard.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
+import 'package:userinterface/sa_login.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -50,7 +51,8 @@ class _LoginPageState extends State<LoginPage> {
           icon: Icons.error_outline_rounded,
           iconColor: const Color(0xFFEA324C),
           title: "Sign In Failed",
-          message: authProvider.errorMessage ?? "Google sign-in failed. Please try again.",
+          message: authProvider.errorMessage ??
+              "Google sign-in failed. Please try again.",
           buttonText: "OK",
           onPressed: () => Navigator.of(context).pop(),
         );
@@ -147,6 +149,9 @@ class _LoginPageState extends State<LoginPage> {
 
       // Successful login dialog
       else if (response.statusCode == 200) {
+        final userId = data?['user']['id']; // from Flask
+        Provider.of<AuthProvider>(context, listen: false).setUserId(userId);
+
         _showAnimatedDialog(
           context,
           icon: Icons.check_circle_outline_rounded,
@@ -205,7 +210,7 @@ class _LoginPageState extends State<LoginPage> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, 
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Super Admin
             Row(
@@ -213,7 +218,12 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    // Add Super Admin action here (Yanhui)
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SuperAdminLoginPage(),
+                      ),
+                    );
                   },
                   child: const Text(
                     "Super Admin?",
@@ -246,7 +256,7 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(fontSize: 15, color: Color(0xB2000000)),
               ),
             ),
-            
+
             const SizedBox(height: 38),
 
             // Email

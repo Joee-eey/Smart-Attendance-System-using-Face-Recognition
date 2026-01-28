@@ -3,10 +3,12 @@ import 'dart:developer';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:userinterface/attendance.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 
 class FileItem {
   int id;
@@ -456,16 +458,50 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  // Future<void> createFolder(String name) async {
+  //   final baseUrl = dotenv.env['BASE_URL']!;
+  //   final url = Uri.parse('$baseUrl/subjects');
+
+  //   try {
+  //     log("Attempting to create folder: $name at $url");
+  //     final response = await http.post(
+  //       url,
+  //       headers: {"Content-Type": "application/json"},
+  //       body: jsonEncode({"name": name}),
+  //     );
+  //     log("Response status: ${response.statusCode}");
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       log('Folder created successfully');
+  //       fetchFolders();
+  //     } else {
+  //       log('Failed to create folder: ${response.body}');
+  //     }
+  //   } catch (e) {
+  //     log('Error creating folder', error: e);
+  //   }
+  // }
+
   Future<void> createFolder(String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects');
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId; // <-- get userId from provider
+
+    if (userId == null) {
+      log("User not logged in, cannot create folder");
+      return;
+    }
 
     try {
       log("Attempting to create folder: $name at $url");
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"name": name}),
+        body: jsonEncode({
+          "name": name,
+          "user_id": userId, // <-- pass user ID to backend
+        }),
       );
       log("Response status: ${response.statusCode}");
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -482,12 +518,17 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> updateFolder(int id, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects/$id');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
 
     try {
       final response = await http.put(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"name": name}),
+        body: jsonEncode({
+          "name": name,
+          "user_id": userId,
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -503,7 +544,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> deleteFolder(int id) async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/subjects/$id');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+
+    // Pass userId as query parameter
+    final url = Uri.parse('$baseUrl/subjects/$id?user_id=$userId');
 
     try {
       final response = await http.delete(url);
@@ -521,7 +566,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> createFile(int folderId, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/subjects/$folderId/files');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+
+    // Pass userId as query parameter
+    final url = Uri.parse('$baseUrl/subjects/$folderId/files?user_id=$userId');
 
     try {
       final response = await http.post(
@@ -533,9 +582,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         log('File created successfully');
         final folderIndex = folders.indexWhere((f) => f.id == folderId);
-        if (folderIndex != -1) {
-          fetchFiles(folders[folderIndex]);
-        }
+        if (folderIndex != -1) fetchFiles(folders[folderIndex]);
       } else {
         log('Failed to create file: ${response.body}');
       }
@@ -546,7 +593,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> updateFile(Folder folder, int fileId, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/classes/$fileId');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+
+    // Pass userId as query parameter
+    final url = Uri.parse('$baseUrl/classes/$fileId?user_id=$userId');
 
     try {
       final response = await http.put(
@@ -568,7 +619,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> deleteFile(Folder folder, int fileId) async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/classes/$fileId');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+
+    // Pass userId as query parameter
+    final url = Uri.parse('$baseUrl/classes/$fileId?user_id=$userId');
 
     try {
       final response = await http.delete(url);

@@ -11,36 +11,42 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  /// NEW: For your custom login
+  int? _userId;
+
   GoogleUser? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _currentUser != null;
+  bool get isAuthenticated => _currentUser != null || _userId != null;
+
+  /// Getter for custom login userId
+  int? get userId => _userId;
 
   /// Signs in with Google
-Future<bool> signInWithGoogle({bool forceChooser = false}) async {
-  _setLoading(true);
-  _clearError();
+  Future<bool> signInWithGoogle({bool forceChooser = false}) async {
+    _setLoading(true);
+    _clearError();
 
-  try {
-    final user = await _googleAuthService.signInWithGoogle(
-      forceAccountChooser: forceChooser,
-    );
+    try {
+      final user = await _googleAuthService.signInWithGoogle(
+        forceAccountChooser: forceChooser,
+      );
 
-    if (user == null) {
-      // User cancelled account chooser
+      if (user == null) {
+        // User cancelled account chooser
+        return false;
+      }
+
+      _currentUser = user;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Sign-in failed: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
-
-    _currentUser = user;
-    notifyListeners();
-    return true;
-  } catch (e) {
-    _setError('Sign-in failed: ${e.toString()}');
-    return false;
-  } finally {
-    _setLoading(false);
   }
-}
 
   /// Signs out the current user
   Future<void> signOut() async {
@@ -50,6 +56,7 @@ Future<bool> signInWithGoogle({bool forceChooser = false}) async {
     try {
       await _googleAuthService.signOut();
       _currentUser = null;
+      _userId = null; // Clear custom login userId too
       notifyListeners();
     } catch (e) {
       _setError('Sign-out failed: ${e.toString()}');
@@ -58,9 +65,16 @@ Future<bool> signInWithGoogle({bool forceChooser = false}) async {
     }
   }
 
+  /// NEW: Set userId for custom login
+  void setUserId(int id) {
+    _userId = id;
+    notifyListeners();
+  }
+
   /// Clears the current user state (without calling Google sign-out)
   void clearUser() {
     _currentUser = null;
+    _userId = null; // clear custom login userId
     _clearError();
     notifyListeners();
   }

@@ -1,22 +1,28 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+// void main() {
+//   WidgetsFlutterBinding.ensureInitialized();
 
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+//   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    systemNavigationBarColor: Colors.white, 
-    systemNavigationBarDividerColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark, 
-    systemNavigationBarContrastEnforced: true, 
-    statusBarColor: Colors.white, 
-    statusBarIconBrightness: Brightness.dark,
-  ));
+//   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+//     systemNavigationBarColor: Colors.white,
+//     systemNavigationBarDividerColor: Colors.white,
+//     systemNavigationBarIconBrightness: Brightness.dark,
+//     systemNavigationBarContrastEnforced: true,
+//     statusBarColor: Colors.white,
+//     statusBarIconBrightness: Brightness.dark,
+//   ));
 
-  runApp(const SuperAdminUsersApp());
-}
+//   runApp(const SuperAdminUsersApp());
+// }
 
 class SuperAdminUsersApp extends StatelessWidget {
   const SuperAdminUsersApp({super.key});
@@ -32,8 +38,8 @@ class SuperAdminUsersApp extends StatelessWidget {
       ),
       home: const AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
-          systemNavigationBarColor: Colors.white, 
-          systemNavigationBarIconBrightness: Brightness.dark, 
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
           systemNavigationBarDividerColor: Colors.white,
           systemNavigationBarContrastEnforced: true,
           statusBarColor: Colors.white,
@@ -46,12 +52,23 @@ class SuperAdminUsersApp extends StatelessWidget {
 }
 
 class UserItem {
+  final int id;
   String name;
   String email;
   String role;
   String provider;
 
-  UserItem(this.name, this.email, this.role, this.provider);
+  UserItem(this.id, this.name, this.email, this.role, this.provider);
+
+  factory UserItem.fromJson(Map<String, dynamic> json) {
+    return UserItem(
+      json['id'],
+      json['name'],
+      json['email'],
+      json['role'],
+      json['provider'],
+    );
+  }
 }
 
 class SuperAdminUsersPage extends StatefulWidget {
@@ -67,17 +84,51 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
   List<String> selectedFilters = ["All"];
   String sortOrder = "A-Z";
 
-  List<UserItem> users = [
-    UserItem("Alex Rivera", "alex.rivera@company.com", "Admin", "Email"),
-    UserItem("Jordan Smith", "j.smith@microsoft.org", "User", "Microsoft"),
-    UserItem("Taylor Chen", "t.chen@google.com", "User", "Google"),
-    UserItem("Sarah Wilson", "s.wilson@corp.com", "User", "Email"),
-  ];
+  // List<UserItem> users = [
+  //   UserItem("Alex Rivera", "alex.rivera@company.com", "Admin", "Email"),
+  //   UserItem("Jordan Smith", "j.smith@microsoft.org", "User", "Microsoft"),
+  //   UserItem("Taylor Chen", "t.chen@google.com", "User", "Google"),
+  //   UserItem("Sarah Wilson", "s.wilson@corp.com", "User", "Email"),
+  // ];
+
+  List<UserItem> users = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUsers();
+  }
+
+  String formatRole(String role) {
+    if (role.isEmpty) return role;
+    return role[0].toUpperCase() + role.substring(1);
+  }
+
+  Future<void> fetchUsers() async {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final url = Uri.parse('$baseUrl/sa/users');
+    try {
+      final response = await http.get(
+        url,
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        setState(() {
+          users = data.map((e) => UserItem.fromJson(e)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching users: $e");
+    }
+  }
 
   final GlobalKey _filterKey = GlobalKey();
 
   void _showFilterPopup() {
-    final RenderBox renderBox = _filterKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox renderBox =
+        _filterKey.currentContext!.findRenderObject() as RenderBox;
     final Offset offset = renderBox.localToGlobal(Offset.zero);
 
     showMenu(
@@ -88,7 +139,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
         offset.dx + renderBox.size.width,
         0,
       ),
-      color: const Color(0xE61565C0), 
+      color: const Color(0xE61565C0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
       items: [
@@ -96,7 +147,13 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
           enabled: false,
           child: StatefulBuilder(
             builder: (context, menuSetState) {
-              const subFilters = ["Admin", "User", "Email", "Google", "Microsoft"];
+              const subFilters = [
+                "Admin",
+                "User",
+                "Email",
+                "Google",
+                "Microsoft"
+              ];
 
               return IconTheme(
                 data: const IconThemeData(
@@ -121,7 +178,6 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                         ),
                       ),
                       const Divider(color: Color(0xFFFFFFFF), thickness: 1),
-
                       ...["All", ...subFilters].map((item) {
                         bool checked = selectedFilters.contains(item);
                         return _buildSelectionRow(
@@ -144,8 +200,8 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                                     selectedFilters.remove("All");
                                   } else {
                                     selectedFilters.add(item);
-                                    if (subFilters.every(
-                                        (element) => selectedFilters.contains(element))) {
+                                    if (subFilters.every((element) =>
+                                        selectedFilters.contains(element))) {
                                       selectedFilters.add("All");
                                     }
                                   }
@@ -155,24 +211,22 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                           },
                         );
                       }).toList(),
-
                       const Divider(color: Color(0xFFFFFFFF), thickness: 1),
-
                       _buildSelectionRow(
                         label: "A to Z",
                         icon: sortOrder == "A-Z"
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
-                        onTap: () =>
-                            setState(() => menuSetState(() => sortOrder = "A-Z")),
+                        onTap: () => setState(
+                            () => menuSetState(() => sortOrder = "A-Z")),
                       ),
                       _buildSelectionRow(
                         label: "Z to A",
                         icon: sortOrder == "Z-A"
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
-                        onTap: () =>
-                            setState(() => menuSetState(() => sortOrder = "Z-A")),
+                        onTap: () => setState(
+                            () => menuSetState(() => sortOrder = "Z-A")),
                       ),
                     ],
                   ),
@@ -217,8 +271,10 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
           decoration: InputDecoration(
             hintText: "Search",
             hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
-            suffixIcon: const Icon(Icons.search_rounded, color: Color(0x4D000000)),
-            contentPadding: const EdgeInsets.only(left: 10, top: 12, bottom: 12),
+            suffixIcon:
+                const Icon(Icons.search_rounded, color: Color(0x4D000000)),
+            contentPadding:
+                const EdgeInsets.only(left: 10, top: 12, bottom: 12),
             filled: true,
             fillColor: const Color(0xFFF6F6F6),
             enabledBorder: OutlineInputBorder(
@@ -270,16 +326,18 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                           fontWeight: FontWeight.w500, fontSize: 15),
                     ),
                     const SizedBox(width: 5),
-                    _rolePill(user.role),
+                    _rolePill(formatRole(user.role)),
                   ],
                 ),
                 const SizedBox(height: 5),
                 Text(
                   user.email,
-                  style: const TextStyle(fontSize: 14, color: Color(0xB3000000)),
+                  style:
+                      const TextStyle(fontSize: 14, color: Color(0xB3000000)),
                 ),
                 const SizedBox(height: 5),
-                _providerPill(user.provider),
+                // _providerPill(user.provider),
+                _providerPill(formatRole(user.provider)),
               ],
             ),
           ),
@@ -374,13 +432,44 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
     );
   }
 
+  Future<bool> _editUser(
+      int userId, String name, String email, int adminId) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final url = Uri.parse('$baseUrl/sa/user/edit');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id_to_edit': userId,
+          'admin_id': adminId,
+          'name': name,
+          'email': email,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        log("Failed to edit user: ${response.statusCode} ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      log("Error editing user: $e");
+      return false;
+    }
+  }
+
   void _showEditDialog(UserItem user) {
-    final TextEditingController nameController = TextEditingController(text: user.name);
-    final TextEditingController emailController = TextEditingController(text: user.email);
+    final TextEditingController nameController =
+        TextEditingController(text: user.name);
+    final TextEditingController emailController =
+        TextEditingController(text: user.email);
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -403,79 +492,102 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.close_rounded, color: Colors.black54, size: 20),
+                      onTap: () => Navigator.pop(dialogContext),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.black54,
+                        size: 20,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Container(height: 1, color: const Color(0xFFF6F6F6)),
                 const SizedBox(height: 15),
-
                 TextField(
                   controller: nameController,
-                  decoration: InputDecoration(
-                    hintText: "Name",
-                    filled: true,
-                    fillColor: const Color(0xFFF7F8FA),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 1),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 1),
-                    ),
-                  ),
+                  decoration: _inputDecoration("Name"),
                 ),
                 const SizedBox(height: 8),
-
                 TextField(
                   controller: emailController,
-                  decoration: InputDecoration(
-                    hintText: "Email",
-                    filled: true,
-                    fillColor: const Color(0xFFF7F8FA),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 1),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.transparent, width: 1),
-                    ),
-                  ),
+                  decoration: _inputDecoration("Email"),
                 ),
                 const SizedBox(height: 15),
-
                 SizedBox(
                   width: double.infinity,
                   height: 45,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1565C0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    onPressed: () {
-                      setState(() {
-                        user.name = nameController.text;
-                        user.email = emailController.text;
-                      });
-                      Navigator.pop(context);
+                    onPressed: () async {
+                      final authProvider =
+                          Provider.of<AuthProvider>(context, listen: false);
+                      final adminId = authProvider.userId;
+
+                      if (adminId == null) {
+                        Navigator.pop(dialogContext);
+
+                        if (!mounted) return;
+
+                        _showAnimatedDialog(
+                          icon: Icons.error_outline,
+                          iconColor: Colors.red,
+                          title: "Error",
+                          message: "Admin not logged in.",
+                          buttonText: "OK",
+                          onPressed: () => Navigator.pop(context),
+                        );
+                        return;
+                      }
+
+                      final success = await _editUser(
+                        user.id,
+                        nameController.text.trim(),
+                        emailController.text.trim(),
+                        adminId,
+                      );
+
+                      // ✅ Close edit dialog FIRST
+                      Navigator.pop(dialogContext);
+
+                      if (!mounted) return;
+
+                      if (success) {
+                        setState(() {
+                          user.name = nameController.text.trim();
+                          user.email = emailController.text.trim();
+                        });
+
+                        _showAnimatedDialog(
+                          icon: Icons.check_circle_outline_rounded,
+                          iconColor: const Color(0xFF00B38A),
+                          title: "Success",
+                          message: "User updated successfully!",
+                          buttonText: "OK",
+                          onPressed: () => Navigator.pop(context),
+                        );
+                      } else {
+                        _showAnimatedDialog(
+                          icon: Icons.error_outline,
+                          iconColor: Colors.red,
+                          title: "Failed",
+                          message: "Failed to update user. Try again.",
+                          buttonText: "OK",
+                          onPressed: () => Navigator.pop(context),
+                        );
+                      }
                     },
                     child: const Text(
                       "Confirm Changes",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -487,10 +599,101 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
     );
   }
 
-  void _showDeleteDialog(UserItem user) {
+  InputDecoration _inputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: const Color(0xFFF7F8FA),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  Future<bool> _deleteUser(int userId, int adminId) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final url = Uri.parse('$baseUrl/sa/user/delete');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "user_id_to_delete": userId,
+          "admin_id": adminId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        log("Failed to delete: ${response.statusCode} ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      log("Error deleting user: $e");
+      return false;
+    }
+  }
+
+  void _showAnimatedDialog({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
     showDialog(
       context: context,
-      builder: (context) {
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 60, color: iconColor),
+            const SizedBox(height: 16),
+            Text(title,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: iconColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: onPressed,
+                child: Text(buttonText),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(UserItem user) {
+    showDialog(
+      context: context, // Use page context
+      builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -517,7 +720,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
                         style: OutlinedButton.styleFrom(
                           backgroundColor: const Color(0xFFF6F6F6),
                           shape: RoundedRectangleBorder(
@@ -534,9 +737,48 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                             backgroundColor: const Color(0xFFF84F31),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8))),
-                        onPressed: () {
-                          setState(() => users.remove(user));
-                          Navigator.pop(context);
+                        onPressed: () async {
+                          final authProvider =
+                              Provider.of<AuthProvider>(context, listen: false);
+                          final adminId = authProvider.userId;
+
+                          Navigator.of(dialogContext)
+                              .pop(); // close delete dialog first
+
+                          if (adminId == null) {
+                            _showAnimatedDialog(
+                              icon: Icons.error_outline,
+                              iconColor: Colors.red,
+                              title: "Error",
+                              message: "Admin not logged in.",
+                              buttonText: "OK",
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                            return;
+                          }
+
+                          final success = await _deleteUser(user.id, adminId);
+
+                          if (success) {
+                            setState(() => users.remove(user));
+                            _showAnimatedDialog(
+                              icon: Icons.check_circle_outline_rounded,
+                              iconColor: const Color(0xFF00B38A),
+                              title: "Success",
+                              message: "User deleted successfully!",
+                              buttonText: "OK",
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                          } else {
+                            _showAnimatedDialog(
+                              icon: Icons.error_outline,
+                              iconColor: Colors.red,
+                              title: "Failed",
+                              message: "Failed to delete the user. Try again.",
+                              buttonText: "OK",
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                          }
                         },
                         child: const Text("Delete",
                             style: TextStyle(color: Colors.white)),
@@ -590,20 +832,24 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
         unselectedIconTheme: const IconThemeData(size: 24),
         onTap: (index) {
           if (index == 0) {
-            Navigator.pushNamed(context, '/dashboard');
+            Navigator.pushNamed(context, '/sa/dashboard');
           } else if (index == 1) {
-            Navigator.pushNamed(context, '/users');
+            Navigator.pushNamed(context, '/sa/users');
           } else if (index == 2) {
-            Navigator.pushNamed(context, '/logs');
+            Navigator.pushNamed(context, '/sa/logs');
           } else if (index == 3) {
-            Navigator.pushNamed(context, '/settings');
+            Navigator.pushNamed(context, '/sa/settings');
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'Users'),
-          BottomNavigationBarItem(icon: Icon(Icons.history_rounded), label: 'Logs'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Settings'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.people_rounded), label: 'Users'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.history_rounded), label: 'Logs'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings_rounded), label: 'Settings'),
         ],
       ),
     );

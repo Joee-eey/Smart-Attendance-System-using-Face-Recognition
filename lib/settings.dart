@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/main.dart';
+import 'dart:developer';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -13,6 +17,44 @@ class AccountSettingsPage extends StatefulWidget {
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool attendanceReminders = true;
+  String _username = "";
+  String _email = "";
+  bool _isProfileLoading = true;
+  late TextEditingController _usernameController;
+  late TextEditingController _emailController;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController = TextEditingController();
+    _emailController = TextEditingController();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _usernameController.text = data['username'] ?? '';
+          _emailController.text = data['email'] ?? '';
+          _isProfileLoading = false;
+        });
+      } else {
+        log("Failed to load profile: ${response.body}");
+      }
+    } catch (e) {
+      log("Error fetching profile: $e");
+    }
+  }
 
   void _showPhotoOptions() {
     showModalBottomSheet(
@@ -43,15 +85,49 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
   }
 
-void _handleSignOut() async {
-  await Provider.of<AuthProvider>(context, listen: false).signOut();
+  // void _handleSignOut() async {
+  //   await Provider.of<AuthProvider>(context, listen: false).signOut();
 
-  Navigator.pushAndRemoveUntil(
-    context,
-    MaterialPageRoute(builder: (_) => const HomePage()),
-    (_) => false,
-  );
-}
+  //   Navigator.pushAndRemoveUntil(
+  //     context,
+  //     MaterialPageRoute(builder: (_) => const HomePage()),
+  //     (_) => false,
+  //   );
+  // }
+
+  void _handleSignOut() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId; // get the current user id
+
+    try {
+      // Call backend to log the sign out
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final url = Uri.parse('$baseUrl/logout');
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"user_id": userId}),
+      );
+
+      if (response.statusCode == 200) {
+        log('Sign out logged successfully');
+      } else {
+        log('Failed to log sign out: ${response.body}');
+      }
+    } catch (e) {
+      log('Error logging sign out: $e');
+    }
+
+    // Sign out locally
+    await authProvider.signOut();
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomePage()),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +156,6 @@ void _handleSignOut() async {
           unselectedFontSize: 12,
           selectedIconTheme: const IconThemeData(size: 24),
           unselectedIconTheme: const IconThemeData(size: 24),
-
           onTap: (index) {
             if (index == 0) {
               Navigator.pushReplacementNamed(context, '/dashboard');
@@ -92,7 +167,6 @@ void _handleSignOut() async {
               // Stay on Settings
             }
           },
-
           items: const [
             BottomNavigationBarItem(
                 icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
@@ -187,34 +261,27 @@ void _handleSignOut() async {
                       style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 5),
-                    const TextField(
+                    TextFormField(
                       enabled: false,
+                      controller: _usernameController,
+                      style: const TextStyle(
+                        color: Colors.black54, // ensures the text is visible
+                        fontWeight: FontWeight.w500,
+                      ),
                       decoration: InputDecoration(
-                        hintText: "Username",
                         filled: true,
                         fillColor: Color(0xFFF6F6F6),
                         contentPadding:
                             EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(
-                            color: Color(0x1A000000),
-                            width: 1,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(
-                            color: Color(0x1A000000),
-                            width: 1,
-                          ),
+                          borderSide:
+                              BorderSide(color: Color(0x1A000000), width: 1),
                         ),
                         disabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(
-                            color: Color(0x1A000000),
-                            width: 1,
-                          ),
+                          borderSide:
+                              BorderSide(color: Color(0x1A000000), width: 1),
                         ),
                       ),
                     ),
@@ -224,34 +291,27 @@ void _handleSignOut() async {
                       style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 5),
-                    const TextField(
+                    TextFormField(
                       enabled: false,
+                      controller: _emailController,
+                      style: const TextStyle(
+                        color: Colors.black54, // ensures the text is visible
+                        fontWeight: FontWeight.w500,
+                      ),
                       decoration: InputDecoration(
-                        hintText: "Email",
                         filled: true,
                         fillColor: Color(0xFFF6F6F6),
                         contentPadding:
                             EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(
-                            color: Color(0x1A000000),
-                            width: 1,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(
-                            color: Color(0x1A000000),
-                            width: 1,
-                          ),
+                          borderSide:
+                              BorderSide(color: Color(0x1A000000), width: 1),
                         ),
                         disabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide(
-                            color: Color(0x1A000000),
-                            width: 1,
-                          ),
+                          borderSide:
+                              BorderSide(color: Color(0x1A000000), width: 1),
                         ),
                       ),
                     ),
@@ -346,9 +406,7 @@ void _handleSignOut() async {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  
-                  onPressed: _handleSignOut, 
-                  
+                  onPressed: _handleSignOut,
                   child: const Text(
                     "Sign Out",
                     style: TextStyle(
@@ -364,5 +422,12 @@ void _handleSignOut() async {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    super.dispose();
   }
 }

@@ -1,12 +1,13 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
 import 'dart:developer';
 import 'package:userinterface/faceenroll.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 
 class EnrollmentPage extends StatefulWidget {
   // final String imagePath;
@@ -88,6 +89,9 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       final baseUrl = dotenv.env['BASE_URL'] ?? '';
       if (baseUrl.isEmpty) return;
 
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userId;
+
       var uri = Uri.parse('$baseUrl/enroll');
       var request = http.MultipartRequest("POST", uri);
 
@@ -95,14 +99,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       request.fields["student_card_id"] = idController.text;
       request.fields["course"] = courseController.text;
       request.fields["primary_index"] = _currentImageIndex.toString();
-
-      // if (File(widget.imagePath).existsSync()) {
-      //   request.files.add(await http.MultipartFile.fromPath(
-      //     "image",
-      //     widget.imagePath,
-      //     filename: path.basename(widget.imagePath),
-      //   ));
-      // }
+      request.fields["user_id"] = userId.toString();
 
       if (widget.imagePaths.isNotEmpty) {
         for (var imagePath in widget.imagePaths) {
@@ -242,7 +239,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(   // <-- Wrap Column to prevent overflow
+        child: SingleChildScrollView(
+          // <-- Wrap Column to prevent overflow
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
             child: Column(
@@ -253,7 +251,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const Enrollment()),
+                      MaterialPageRoute(
+                          builder: (context) => const Enrollment()),
                     );
                   },
                 ),
@@ -268,7 +267,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                       color: Color(0xFF1565C0),
                     ),
                     child: widget.imagePaths.isEmpty
-                        ? const Icon(Icons.person, color: Colors.white, size: 100)
+                        ? const Icon(Icons.person,
+                            color: Colors.white, size: 100)
                         : ClipOval(
                             child: PageView.builder(
                               itemCount: widget.imagePaths.length,
@@ -311,7 +311,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 // Student Details
                 SizedBox(
                     height: 50,
-                    child: _buildTextField("Enter student name", nameController)),
+                    child:
+                        _buildTextField("Enter student name", nameController)),
                 const SizedBox(height: 10),
                 SizedBox(
                     height: 50,
@@ -319,7 +320,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                 const SizedBox(height: 10),
                 SizedBox(
                     height: 50,
-                    child: _buildTextField("Enter student course", courseController)),
+                    child: _buildTextField(
+                        "Enter student course", courseController)),
                 const SizedBox(height: 15),
                 // Dropdown (Subjects) HIDDEN!
                 Visibility(
@@ -353,7 +355,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20), // optional spacing before bottom nav
+                const SizedBox(
+                    height: 20), // optional spacing before bottom nav
               ],
             ),
           ),
@@ -412,7 +415,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
             },
             items: const [
               BottomNavigationBarItem(
-                  icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
+                  icon: Icon(Icons.space_dashboard_rounded),
+                  label: 'Dashboard'),
               BottomNavigationBarItem(
                   icon: Icon(Icons.camera_alt_rounded), label: 'Enrollment'),
               BottomNavigationBarItem(

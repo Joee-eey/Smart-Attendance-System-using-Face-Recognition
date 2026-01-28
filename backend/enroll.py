@@ -34,12 +34,22 @@ def get_db_connection():
         database=db_config['database']
     )
 
+def insert_log(conn, user_id, action_type, target_entity, target_id=None, description=None):
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO logs (user_id, action_type, target_entity, target_id, description)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (user_id, action_type, target_entity, target_id, description))
+    conn.commit()
+    cursor.close()
+
 
 @enroll_bp.route("/enroll", methods=["POST"])
 def enroll():
     name = request.form.get("name")
     student_card_id = request.form.get("student_card_id")
     course = request.form.get("course")
+    user_id = request.form.get("user_id", type=int)
     images = request.files.getlist("images")
     primary_index = int(request.form.get("primary_index", 0))
 
@@ -157,6 +167,15 @@ def enroll():
             cursor.execute("""
                 UPDATE students SET face_image_url = %s WHERE id = %s
             """, (primary_image_url, student_id))
+
+        insert_log(
+            conn=conn,
+            user_id=user_id,
+            action_type="ENROLL",
+            target_entity="students",
+            target_id=student_id,
+            description=f"Enrolled student '{name}' with student ID {student_card_id}"
+        )
 
         conn.commit()
         return jsonify({"message": "Student enrolled successfully"}), 201

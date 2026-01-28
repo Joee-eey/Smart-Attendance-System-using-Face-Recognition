@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -36,13 +37,10 @@ class SuperAdminSettingsPage extends StatefulWidget {
   const SuperAdminSettingsPage({super.key});
 
   @override
-  State<SuperAdminSettingsPage> createState() =>
-      _SuperAdminSettingsPageState();
+  State<SuperAdminSettingsPage> createState() => _SuperAdminSettingsPageState();
 }
 
 class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
-  int _currentIndex = 3;
-
   bool googleSSO = true;
   bool microsoftSSO = false;
 
@@ -161,12 +159,10 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                   const SizedBox(height: 8),
                   Container(height: 1, color: const Color(0x1A000000)),
                   const SizedBox(height: 6),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Google SSO",
-                          style: TextStyle(fontSize: 14)),
+                      const Text("Google SSO", style: TextStyle(fontSize: 14)),
                       Transform.scale(
                         scale: 0.8,
                         child: Switch(
@@ -185,7 +181,6 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                       ),
                     ],
                   ),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -237,21 +232,17 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                   const SizedBox(height: 8),
                   Container(height: 1, color: const Color(0x1A000000)),
                   const SizedBox(height: 12),
-
                   const Text(
                     "Logs Retention",
-                    style: TextStyle(
-                        fontWeight: FontWeight.w500, fontSize: 14),
+                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     "Configure log data retention settings to ensure secure deletion after a specified period.",
-                    style:
-                        TextStyle(fontSize: 13, color: Colors.grey, height: 1.4),
+                    style: TextStyle(
+                        fontSize: 13, color: Colors.grey, height: 1.4),
                   ),
-
                   const SizedBox(height: 5),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -270,15 +261,12 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                               WidgetStateProperty.all(Colors.transparent),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (v) =>
-                              setState(() => enableAutoPurge = v),
+                          onChanged: (v) => setState(() => enableAutoPurge = v),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 5),
-
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -316,24 +304,22 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: const [
                             Text("7 Days",
-                                style:
-                                    TextStyle(fontSize: 11, color: Colors.grey)),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                             Text("180 Days",
-                                style:
-                                    TextStyle(fontSize: 11, color: Colors.grey)),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                             Text("1 Year",
-                                style:
-                                    TextStyle(fontSize: 11, color: Colors.grey)),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                           ],
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 15),
                   Container(height: 1, color: const Color(0x1A000000)),
                   const SizedBox(height: 15),
-
                   SizedBox(
                     width: double.infinity,
                     height: 44,
@@ -355,13 +341,12 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 10),
                   const Text(
                     "MANUAL PURGE IMMEDIATELY DELETES ALL LOGS DATA OLDER THAN THE SET RETENTION PERIOD. THIS ACTION CANNOT BE UNDONE.",
                     textAlign: TextAlign.center,
-                    style:
-                        TextStyle(fontSize: 10, color: Colors.grey, height: 1.4),
+                    style: TextStyle(
+                        fontSize: 10, color: Colors.grey, height: 1.4),
                   ),
                 ],
               ),
@@ -369,18 +354,26 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
           ],
         ),
       ),
-
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: 3,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF1565C0),
         unselectedItemColor: Colors.grey,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushNamed(context, '/sa/dashboard');
+          } else if (index == 1) {
+            Navigator.pushNamed(context, '/sa/users');
+          } else if (index == 2) {
+            Navigator.pushNamed(context, '/sa/logs');
+          } else if (index == 3) {
+            Navigator.pushNamed(context, '/sa/settings');
+          }
+        },
         items: const [
           BottomNavigationBarItem(
-              icon: Icon(Icons.space_dashboard_rounded),
-              label: 'Dashboard'),
+              icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),
           BottomNavigationBarItem(
               icon: Icon(Icons.people_rounded), label: 'Users'),
           BottomNavigationBarItem(

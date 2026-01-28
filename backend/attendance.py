@@ -149,7 +149,6 @@ def delete_attendance(attendance_id):
         cursor = conn.cursor()
 
         # Delete the record from the 'attendance' table
-        # (Assuming your table is named 'attendance')
         cursor.execute("DELETE FROM attendance WHERE id = %s", (attendance_id,))
         conn.commit()
 

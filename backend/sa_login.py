@@ -4,7 +4,7 @@ from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
 
-login_bp = Blueprint('login', __name__)
+sa_login_bp = Blueprint('sa_login', __name__)
 load_dotenv()
 bcrypt = Bcrypt()
 
@@ -35,8 +35,8 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     cursor.close()
     
 
-@login_bp.route('/login', methods=['POST'])
-def login():
+@sa_login_bp.route('/sa/login', methods=['POST'])
+def superadmin_login():
     data = request.get_json()
 
     if not data:
@@ -54,18 +54,21 @@ def login():
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute(
-            "SELECT * FROM users WHERE email = %s AND role = 'admin'",
+            "SELECT * FROM users WHERE email = %s AND role = 'superadmin'",
             (email,)
         )
         user = cursor.fetchone()
 
         if not user:
-            return jsonify({'message': 'Email not registered. Please sign up first.'}), 404
+            return jsonify({
+                'message': 'Super Admin account not found'
+            }), 404
 
         if bcrypt.check_password_hash(user['password'], password):
+
             insert_log(
                 conn=conn,
-                user_id=user['id'],  # admin who logged in
+                user_id=user['id'],
                 action_type="LOGIN",
                 target_entity="users",
                 target_id=user['id'],
@@ -73,11 +76,11 @@ def login():
             )
 
             return jsonify({
-                'message': 'Login successful',
+                'message': 'Super Admin login successful',
                 'user': {
                     'id': user['id'],
-                    'username': user['username'],
-                    'email': user['email']
+                    'email': user['email'],
+                    'role': user['role']
                 }
             }), 200
         else:
@@ -85,11 +88,7 @@ def login():
 
     except mysql.connector.Error as err:
         print(f"Database Error: {err}")
-        return jsonify({'message': 'Database error occurred during login'}), 500
-
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return jsonify({'message': 'An internal server error occurred'}), 500
+        return jsonify({'message': 'Database error occurred'}), 500
 
     finally:
         if conn and conn.is_connected():

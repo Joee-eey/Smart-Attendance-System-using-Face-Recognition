@@ -44,9 +44,6 @@ class _SignupPageState extends State<SignupPage> {
         }),
       );
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
       Map<String, dynamic>? data;
       try {
         data = json.decode(response.body);

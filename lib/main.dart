@@ -9,7 +9,11 @@ import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/dashboard.dart';
 import 'package:userinterface/reports.dart';
 import 'package:userinterface/settings.dart';
-
+import 'package:userinterface/sa_login.dart';
+import 'package:userinterface/sa_dashboard.dart';
+import 'package:userinterface/sa_users.dart';
+import 'package:userinterface/sa_settings.dart';
+import 'package:userinterface/sa_logs.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -34,11 +38,17 @@ class SmartAttendanceApp extends StatelessWidget {
         fontFamily: 'Inter',
         scaffoldBackgroundColor: const Color(0xFFFFFFFF),
       ),
-       routes: {
-        '/dashboard': (context) => const DashboardPage(),  
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/dashboard': (context) => const DashboardPage(),
         '/enroll': (context) => const Enrollment(),
-        '/reports': (context) => const AttendanceReportPage(),      
-        '/settings': (context) => const AccountSettingsPage(),  
+        '/reports': (context) => const AttendanceReportPage(),
+        '/settings': (context) => const AccountSettingsPage(),
+        "/sa/login": (context) => const SuperAdminLoginPage(),
+        "/sa/dashboard": (context) => const SuperAdminDashboardPage(),
+        "/sa/logs": (context) => const SuperAdminLogsPage(),
+        "/sa/users": (context) => const SuperAdminUsersPage(),
+        "/sa/settings": (context) => const SuperAdminSettingsPage(),
       },
       home: const HomePage(),
     );

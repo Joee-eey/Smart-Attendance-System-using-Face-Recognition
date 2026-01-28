@@ -150,19 +150,19 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  void _pickSingleImage() async {
-    try {
-      final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image != null && mounted) {
-        setState(() {
-          _capturedImage = image;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error picking image: $e");
-    }
-  }
+  // void _pickSingleImage() async {
+  //   try {
+  //     final picker = ImagePicker();
+  //     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  //     if (image != null && mounted) {
+  //       setState(() {
+  //         _capturedImage = image;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Error picking image: $e");
+  //   }
+  // }
 
   void _pickMultipleImages() async {
   try {
