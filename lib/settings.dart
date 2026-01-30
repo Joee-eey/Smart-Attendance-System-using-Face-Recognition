@@ -7,6 +7,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/main.dart';
 import 'dart:developer';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:userinterface/changepsw.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -19,9 +22,11 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool attendanceReminders = true;
   String _username = "";
   String _email = "";
+  String? _profileImageUrl;
   bool _isProfileLoading = true;
   late TextEditingController _usernameController;
   late TextEditingController _emailController;
+  File? _selectedImage;
 
   @override
   void initState() {
@@ -36,24 +41,93 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     final userId = authProvider.userId;
 
     try {
-      final baseUrl = dotenv.env['BASE_URL']!;
-      final response = await http.get(
-        Uri.parse('$baseUrl/users/$userId'),
-      );
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final response = await http.get(Uri.parse('$baseUrl/users/$userId'));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _usernameController.text = data['username'] ?? '';
-          _emailController.text = data['email'] ?? '';
-          _isProfileLoading = false;
-        });
-      } else {
-        log("Failed to load profile: ${response.body}");
-      }
-    } catch (e) {
-      log("Error fetching profile: $e");
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _usernameController.text = data['username'] ?? '';
+        _emailController.text = data['email'] ?? '';
+        
+        // REMARK: Update to the correct key from your Flask SELECT statement
+        if (data['profile_image_url'] != null && data['profile_image_url'].toString().isNotEmpty) {
+            _profileImageUrl = '$baseUrl/${data['profile_image_url']}';
+            // Clear the local temporary file since we now have the saved one from server
+            _selectedImage = null; 
+          }
+        _isProfileLoading = false;
+      });
     }
+  } catch (e) {
+    log("Error fetching profile: $e");
+  }
+}
+
+  Future<void> _uploadPhoto(File imageFile) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/users/upload_photo'));
+      request.fields['user_id'] = userId.toString();
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+      var response = await request.send();
+    if (response.statusCode == 200) {
+      log("Uploaded and saved to database!");
+      _fetchProfile();
+    }
+  } catch (e) {
+    log("Upload error: $e");
+  }
+}
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      File imageFile = File(pickedFile.path);
+      setState(() {
+        _selectedImage = imageFile;
+      });
+      await _uploadPhoto(imageFile);
+    }
+  }
+
+  void _viewPhoto() {
+    if (_profileImageUrl == null && _selectedImage == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: DecorationImage(
+                  image: (_selectedImage != null 
+                      ? FileImage(_selectedImage!) 
+                      : NetworkImage(_profileImageUrl!)) as ImageProvider,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close", style: TextStyle(fontSize: 18, color: Colors.white)),
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   void _showPhotoOptions() {
@@ -71,12 +145,18 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               ListTile(
                 leading: const Icon(Icons.photo_library_rounded),
                 title: const Text('Choose existing photo'),
-                onTap: () {},
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_rounded),
                 title: const Text('View Photo'),
-                onTap: () {},
+                onTap: () {
+                  Navigator.pop(context);
+                  _viewPhoto();
+                },
               ),
             ],
           ),
@@ -96,37 +176,119 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   // }
 
   void _handleSignOut() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId; // get the current user id
-
-    try {
-      // Call backend to log the sign out
-      final baseUrl = dotenv.env['BASE_URL']!;
-      final url = Uri.parse('$baseUrl/logout');
-
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"user_id": userId}),
-      );
-
-      if (response.statusCode == 200) {
-        log('Sign out logged successfully');
-      } else {
-        log('Failed to log sign out: ${response.body}');
-      }
-    } catch (e) {
-      log('Error logging sign out: $e');
-    }
-
-    // Sign out locally
-    await authProvider.signOut();
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const HomePage()),
-      (_) => false,
+    bool? confirmSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          insetPadding: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFF84F31),
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Sign Out?",
+                  style: TextStyle(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Are you sure you want to sign out?\nYou will need to login again to access your account.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    // Styled Cancel Button
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF6F6F6),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text(
+                          "Cancel",
+                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF84F31),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text(
+                          "Sign Out",
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    )
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
     );
+
+    if (confirmSignOut == true) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userId;
+
+      try {
+        final baseUrl = dotenv.env['BASE_URL']!;
+        final url = Uri.parse('$baseUrl/logout');
+
+        final response = await http.post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+
+        if (response.statusCode == 200) {
+          log('Sign out logged successfully');
+        } else {
+          log('Failed to log sign out: ${response.body}');
+        }
+      } catch (e) {
+        log('Error logging sign out: $e');
+      }
+
+      await authProvider.signOut();
+      
+      if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+        (_) => false,
+      );
+    }
+  }
+}
+
+  void _setupAttendanceReminder() {
+     log("Attendance reminders activated linking to attendance.dart logic");
   }
 
   @override
@@ -215,17 +377,18 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                           child: Container(
                             width: 50,
                             height: 50,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.grey,
+                              image: _selectedImage != null 
+                                ? DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover)
+                                : (_profileImageUrl != null 
+                                    ? DecorationImage(image: NetworkImage(_profileImageUrl!), fit: BoxFit.cover)
+                                    : null),
                             ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.person_rounded,
-                                size: 30,
-                                color: Colors.white,
-                              ),
-                            ),
+                            child: (_selectedImage == null && _profileImageUrl == null)
+                              ? const Center(child: Icon(Icons.person_rounded, size: 30, color: Colors.white)) 
+                              : null,
                           ),
                         ),
                         const SizedBox(width: 15),
@@ -327,7 +490,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ChangePasswordPage()),
+                          );
+                        },
                         child: const Text(
                           "Change Password",
                           style: TextStyle(
@@ -386,6 +554,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                                 MaterialTapTargetSize.shrinkWrap,
                             onChanged: (value) {
                               setState(() => attendanceReminders = value);
+                              if (value) _setupAttendanceReminder();
                             },
                           ),
                         ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:userinterface/attendance.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 
 class FileItem {
@@ -22,11 +24,12 @@ class Folder {
   int? id;
   String name;
   DateTime date;
+  String? imageUrl;
   List<FileItem> files;
   bool isExpanded;
 
   Folder(this.name, this.date,
-      {this.id, this.files = const [], this.isExpanded = false});
+      {this.id, this.imageUrl, this.files = const [], this.isExpanded = false});
 }
 
 class DashboardPage extends StatefulWidget {
@@ -38,16 +41,34 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   List<Folder> folders = [];
+  List<Folder> filteredFolders = [];
   bool isLoading = true;
+  final ImagePicker _picker = ImagePicker();
+  XFile? _pickedFile;
   List<Map<String, dynamic>> students = [];
   Set<int> selectedStudentIds = {};
   bool isLoadingStudents = false;
+
+  final TextEditingController groupSearchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     fetchFolders();
   }
+
+  void _filterGroups(String query) {
+  setState(() {
+    if (query.isEmpty) {
+      filteredFolders = folders;
+    } else {
+      filteredFolders = folders
+          .where((folder) =>
+              folder.name.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    }
+  });
+}
 
   Future<void> _confirmEnrollStudents({
     required List<int> studentIds,
@@ -414,8 +435,12 @@ class _DashboardPageState extends State<DashboardPage> {
                         ? dateFormat.parse(item['created_at'])
                         : DateTime.now(),
                     id: item['id'],
+                    imageUrl: item['image_url'] != null 
+                        ? "${dotenv.env['BASE_URL']}/${item['image_url']}".replaceAll('//', '/')
+                        : null,
                   ))
               .toList();
+              filteredFolders = folders;
           isLoading = false;
         });
         log('Successfully fetched subjects: ${folders.length} items');
@@ -481,7 +506,19 @@ class _DashboardPageState extends State<DashboardPage> {
   //   }
   // }
 
-  Future<void> createFolder(String name) async {
+  Future<void> _pickImage(StateSetter setDialogState) async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (image != null) {
+      setDialogState(() {
+        _pickedFile = image;
+      });
+    }
+  }
+
+  Future<void> createFolder(String name, XFile? imageFile) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects');
 
@@ -494,16 +531,17 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     try {
-      log("Attempting to create folder: $name at $url");
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "name": name,
-          "user_id": userId, // <-- pass user ID to backend
-        }),
-      );
-      log("Response status: ${response.statusCode}");
+      var request = http.MultipartRequest('POST', url);
+      request.fields['name'] = name;
+      request.fields['user_id'] = userId.toString();
+
+      if (imageFile != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      
       if (response.statusCode == 200 || response.statusCode == 201) {
         log('Folder created successfully');
         fetchFolders();
@@ -515,7 +553,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> updateFolder(int id, String name) async {
+  Future<void> updateFolder(int id, String name, XFile? imageFile) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects/$id');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -642,10 +680,13 @@ class _DashboardPageState extends State<DashboardPage> {
   void _showFolderDialog({Folder? folder, bool isEdit = false}) {
     final TextEditingController nameController =
         TextEditingController(text: folder?.name ?? '');
+    _pickedFile = null;
 
     showDialog(
       context: context,
       builder: (context) {
+        return StatefulBuilder( // Added StatefulBuilder to update image preview inside dialog
+          builder: (context, setDialogState) {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -677,7 +718,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 10),
                 Container(height: 1, color: const Color(0xFFF6F6F6)),
                 const SizedBox(height: 15),
-                Row(
+                GestureDetector(
+                  onTap: () => _pickImage(setDialogState), // Trigger picker
+                  child: Row(
                   children: [
                     Container(
                       width: 60,
@@ -685,27 +728,32 @@ class _DashboardPageState extends State<DashboardPage> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFF7F8FA),
                         borderRadius: BorderRadius.circular(8),
+
+                        image: _pickedFile != null 
+                                ? DecorationImage(image: FileImage(File(_pickedFile!.path)), fit: BoxFit.cover)
+                                : null,
                       ),
-                      child:
-                          const Icon(Icons.image, size: 40, color: Colors.grey),
+                      child: _pickedFile == null
+                          ? const Icon(Icons.image, size: 40, color: Colors.grey)
+                          : null,
                     ),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isEdit ? "Change Picture" : "Upload Picture",
+                          _pickedFile != null ? "Change Picture" : "Upload Picture",
                           style: const TextStyle(
                               color: Color(0xFF1565C0),
                               fontWeight: FontWeight.w600),
                         ),
                         const Text(
                           "JPG or PNG, max 5MB",
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ],
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 15),
                 TextField(
@@ -738,10 +786,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       if (nameController.text.isNotEmpty) {
                         if (isEdit && folder != null) {
                           if (folder.id != null) {
-                            await updateFolder(folder.id!, nameController.text);
+                            await updateFolder(folder.id!, nameController.text, _pickedFile);
                           }
                         } else {
-                          await createFolder(nameController.text);
+                          await createFolder(nameController.text, _pickedFile);
                         }
                         if (mounted) Navigator.pop(context);
                       }
@@ -749,13 +797,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     child: Text(
                       isEdit ? "Confirm Changes" : "Create",
                       style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1075,11 +1124,20 @@ class _DashboardPageState extends State<DashboardPage> {
               : Column(
                   children: [
                     TextField(
+                      controller: groupSearchController,
+                      onChanged: _filterGroups,
                       decoration: InputDecoration(
                         hintText: "Search",
                         hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
-                        suffixIcon:
-                            const Icon(Icons.search, color: Color(0x4D000000)),
+                        suffixIcon: groupSearchController.text.isEmpty
+                            ? const Icon(Icons.search, color: Color(0x4D000000))
+                            : IconButton( // REMARK: Added a clear button for better UX
+                                icon: const Icon(Icons.clear, color: Color(0xFF1565C0)),
+                                onPressed: () {
+                                  groupSearchController.clear();
+                                  _filterGroups("");
+                                },
+                              ),
                         contentPadding: const EdgeInsets.only(
                             left: 10, top: 12, bottom: 12),
                         filled: true,
@@ -1106,9 +1164,34 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: ListView.builder(
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
-                        itemCount: folders.length + 1,
+                        itemCount: filteredFolders.isEmpty ? (groupSearchController.text.isEmpty ? 2 : 1) : filteredFolders.length + 1,
                         itemBuilder: (context, index) {
-                          if (index == folders.length) {
+
+                          if (filteredFolders.isEmpty && groupSearchController.text.isNotEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40),
+                              child: Center(child: Text("No matching groups found", style: TextStyle(color: Colors.grey))),
+                            );
+                          }
+
+                          if (folders.isEmpty && index == 0) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: Text(
+                                  "No groups created yet.\nTap the add button below to start.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          if ((filteredFolders.isEmpty && index == 1) || (filteredFolders.isNotEmpty && index == filteredFolders.length)) {
                             return Center(
                               child: Padding(
                                 padding:
@@ -1131,7 +1214,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             );
                           }
 
-                          final folder = folders[index];
+                          final folder = filteredFolders[index];
 
                           return Dismissible(
                             key: Key(folder.name),
@@ -1202,7 +1285,16 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 color: const Color(0x1A000000),
                                                 borderRadius:
                                                     BorderRadius.circular(8),
+                                                    image: folder.imageUrl != null && folder.imageUrl!.isNotEmpty
+                                                      ? DecorationImage(
+                                                          image: NetworkImage(folder.imageUrl!),
+                                                          fit: BoxFit.cover,
+                                                        )
+                                                      : null,
                                               ),
+                                              child: folder.imageUrl == null || folder.imageUrl!.isEmpty
+                                                  ? const Icon(Icons.folder, color: Colors.grey, size: 20)
+                                                  : null,
                                             ),
                                             const SizedBox(width: 12),
                                             Expanded(

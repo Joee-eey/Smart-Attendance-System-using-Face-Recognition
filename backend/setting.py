@@ -33,6 +33,50 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     """, (user_id, action_type, target_entity, target_id, description))
     conn.commit()
     cursor.close()
+
+@setting_bp.route('/users/upload_photo', methods=['POST'])
+def upload_photo():
+    user_id = request.form.get('user_id')
+    file = request.files.get('image')
+    
+    if not file or not user_id:
+        return jsonify({"message": "Missing file or user ID"}), 400
+
+    try:
+        # REMARK: Fix 1 - Create the directory if it doesn't exist to avoid FileNotFoundError
+        upload_folder = 'static/uploads'
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+
+        filename = f"profile_{user_id}.jpg"
+        filepath = os.path.join(upload_folder, filename)
+        
+        # Save the actual file
+        file.save(filepath)
+        
+        # Path to store in the database (relative path)
+        db_path = f"static/uploads/{filename}"
+
+        # REMARK: Fix 2 - Use mysql-connector instead of User.query (SQLAlchemy)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Ensure your 'users' table has a column named 'profile_image_url'
+        cursor.execute("""
+            UPDATE users 
+            SET profile_image_url = %s 
+            WHERE id = %s
+        """, (db_path, user_id))
+        
+        conn.commit()
+        return jsonify({"message": "Profile photo updated", "url": db_path}), 200
+
+    except Exception as e:
+        print(f"[ERROR] Upload failed: {e}")
+        return jsonify({"message": str(e)}), 500
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
     
 @setting_bp.route('/logout', methods=['POST'])
 def logout():
@@ -84,22 +128,11 @@ def get_user(user_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        cursor.execute("""
-            SELECT username, email
-            FROM users
-            WHERE id = %s
-        """, (user_id,))
-
+        cursor.execute("SELECT username, email, profile_image_url FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
-        print(f"[DEBUG] Query result: {user}")
         if not user:
             return jsonify({"message": "User not found"}), 404
-
         return jsonify(user), 200
-
-    except Exception as e:
-        print("[ERROR] Fetch user failed:", e)
-        return jsonify({"message": "Failed to fetch user"}), 500
     finally:
         cursor.close()
         conn.close()

@@ -32,6 +32,11 @@ class _EnrollmentState extends State<Enrollment> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
@@ -89,6 +94,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       camera,
       ResolutionPreset.medium,
       enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.jpeg,
     );
 
     try {
@@ -142,11 +148,40 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     try {
       final XFile image = await _controller!.takePicture();
+      await _controller!.pausePreview();
+      if (_controller!.value.isStreamingImages) {
+        await _controller!.stopImageStream();
+      }
+
       setState(() {
         _capturedImage = image;
       });
     } catch (e) {
       debugPrint("Error capturing photo: $e");
+    }
+  }
+
+  // Add this method inside _ScannerScreenState
+  Future<void> _safeNavigate(String routeName) async {
+    // 1. Stop the camera hardware immediately
+    if (_controller != null && _controller!.value.isInitialized) {
+      await _controller!.dispose();
+      _controller = null;
+      debugPrint("DEBUG: Camera disposed safely before navigation.");
+    }
+
+    // 2. Clear the images from memory if any
+    setState(() {
+      _capturedImage = null;
+      _isCameraReady = false;
+    });
+
+    // 3. Small delay to let Android finish hardware cleanup
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // 4. Navigate
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, routeName);
     }
   }
 
@@ -193,11 +228,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   // CONFIRM IMAGE FUNCTION
   void _confirmImage() async {
-    if (_capturedImage == null) return;
+    if (_controller != null) {
+      await _controller!.dispose();
+        _controller = null;
+      }
 
-    await _controller?.dispose();
-    _controller = null;
+      setState(() {
+      _isCameraReady = false;
+    });
 
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -209,11 +251,15 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
 
-  void _retakeImage() {
+  void _retakeImage() async {
+    await _controller?.dispose();
+    _controller = null;
+
     setState(() {
       _capturedImage = null;
       _isCameraReady = false;
     });
+    
     _initializeCamera(widget.cameras[currentCameraIndex]);
   }
 
@@ -296,13 +342,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           children: [
             // CLOSE BUTTON
             GestureDetector(
-              onTap: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DashboardPage()),
-                  (route) => false, 
-                );
-              },
+              onTap: () => _safeNavigate('/dashboard'),
               child: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
             ),
             Row(
@@ -329,6 +369,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   Widget _buildCameraPreview() {
+    if (!_isCameraReady || _controller == null || !_controller!.value.isInitialized) {
+    return Container(color: Colors.black);
+  }
+
     return GestureDetector(
       // Pinch to zoom
       onScaleStart: (details) {
@@ -599,7 +643,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   @override
   void dispose() {
-    _controller?.dispose();
+    if (_controller != null && _controller!.value.isInitialized) {
+    _controller!.dispose();
+  }
+    _controller = null;
     super.dispose();
   }
 }

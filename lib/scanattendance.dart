@@ -22,6 +22,7 @@ class _ScanAttendanceState extends State<ScanAttendance> {
   bool soundOn = false;
   bool flashOn = false;
   bool _isCameraReady = false;
+  bool _isInitializing = false;
 
   int currentCameraIndex = 0;
   CameraController? _controller;
@@ -40,15 +41,25 @@ class _ScanAttendanceState extends State<ScanAttendance> {
   Future<void> _initializeCameraList() async {
     WidgetsFlutterBinding.ensureInitialized();
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    cameras = await availableCameras();
-    if (cameras != null && cameras!.isNotEmpty) {
-      await _initializeCamera(cameras![currentCameraIndex]);
+    try {
+      cameras = await availableCameras();
+      if (cameras != null && cameras!.isNotEmpty) {
+        await _initializeCamera(cameras![currentCameraIndex]);
+      }
+    } catch (e) {
+      debugPrint("Error fetching cameras: $e");
     }
   }
 
   Future<void> _initializeCamera(CameraDescription camera) async {
-    _controller?.dispose();
-    _controller = CameraController(camera, ResolutionPreset.medium, enableAudio: false);
+    if (_isInitializing) return;
+    setState(() => _isInitializing = true);
+
+    if (_controller != null) {
+      await _controller!.dispose();
+      _controller = null;
+    }
+    _controller = CameraController(camera, ResolutionPreset.medium, enableAudio: false,);
 
     try {
       await _controller!.initialize();
@@ -84,10 +95,11 @@ class _ScanAttendanceState extends State<ScanAttendance> {
   }
 
   void _capturePhoto() async {
-    if (!_isCameraReady || _controller == null) return;
+    if (!_isCameraReady || _controller == null || _controller!.value.isTakingPicture) return;
 
     try {
       final XFile image = await _controller!.takePicture();
+      await _controller!.pausePreview();
       setState(() => _capturedImage = image);
     } catch (e) {
       debugPrint("Error capturing photo: $e");
@@ -97,28 +109,37 @@ class _ScanAttendanceState extends State<ScanAttendance> {
   void _pickImageFromGallery() async {
     try {
       final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null && mounted) setState(() => _capturedImage = pickedFile);
+      if (pickedFile != null && mounted) {
+        if (_controller != null) await _controller!.pausePreview();
+        setState(() => _capturedImage = pickedFile);
+      }
     } catch (e) {
       debugPrint("Error picking image: $e");
     }
   }
 
-  void _retakeImage() {
+  void _retakeImage() async {
     setState(() {
       _capturedImage = null;
       _isCameraReady = false;
     });
-    _initializeCamera(cameras![currentCameraIndex]);
+
+    if (_controller != null) {
+      await _controller!.resumePreview();
+      setState(() => _isCameraReady = true);
+    } else {
+      _initializeCamera(cameras![currentCameraIndex]);
+    }
   }
 
   Future<void> _confirmImage() async {
     if (_capturedImage == null) return;
 
-    await _controller?.dispose();
-    _controller = null;
-
-    if (!mounted) return;
-
+    setState(() => _isCameraReady = false);
+    
+    if (_controller != null) {
+      await _controller!.pausePreview();
+    }
     await _processImage(_capturedImage!.path);
   }
 
@@ -298,7 +319,14 @@ class _ScanAttendanceState extends State<ScanAttendance> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            GestureDetector(onTap: () => Navigator.pop(context),
+            GestureDetector(
+              onTap: () async {
+                if (_controller != null) {
+                  await _controller!.dispose();
+                  _controller = null;
+                }
+                Navigator.pop(context);
+              },
                 child: const Icon(Icons.close_rounded, color: Colors.white, size: 28)),
             Row(
               children: [
@@ -326,8 +354,9 @@ class _ScanAttendanceState extends State<ScanAttendance> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (_isCameraReady && _controller != null)
-            ClipRect(
+          if (_isCameraReady && _controller != null && _controller!.value.isInitialized)
+          SizedBox.expand( // Fills the available space
+            child: ClipRect(
               child: FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
@@ -337,6 +366,7 @@ class _ScanAttendanceState extends State<ScanAttendance> {
                 ),
               ),
             )
+          )
           else
             Container(color: Colors.grey[200]),
           if (showGrid)
@@ -437,7 +467,13 @@ class _ScanAttendanceState extends State<ScanAttendance> {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
-        onTap: (index) {
+        onTap: (index) async {
+          if (_controller != null) {
+            await _controller!.pausePreview();
+            await _controller!.dispose();
+            _controller = null;
+          }
+
           if (index == 0) Navigator.pushNamed(context, '/dashboard');
           if (index == 1) Navigator.pushNamed(context, '/enroll');
           if (index == 2) Navigator.pushNamed(context, '/reports');

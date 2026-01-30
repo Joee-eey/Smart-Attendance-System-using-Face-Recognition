@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
+import 'dart:developer';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,6 +41,67 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final TextEditingController _currentPasswordController =
       TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
+
+  Future<void> _updatePassword() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+
+      // REMARK: Use the cleaned URL to avoid double slashes //
+      final String cleanBaseUrl = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+
+      // REMARK: Use 'cleanBaseUrl' here instead of 'baseUrl'
+      final url = Uri.parse('$cleanBaseUrl/users/change-password');
+
+      debugPrint("Attempting connection to: $url");
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "user_id": userId,
+          "current_password": _currentPasswordController.text,
+          "new_password": _newPasswordController.text,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Password updated successfully!")),
+          );
+          Navigator.pop(context);
+        }
+      } else {
+        final errorData = jsonDecode(response.body);
+        debugPrint("Server Error (${response.statusCode}): ${response.body}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorData['message'] ?? "Error occurred")),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Connection Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to connect to server")),
+        );
+      }
+    }
+  }
+    
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +172,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () => log("Navigate to Forgot Password Page"),
                   child: const Text(
                     "Forgot Password?",
                     style: TextStyle(
@@ -127,7 +194,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: _updatePassword,
                   child: const Text(
                     "Confirm Change",
                     style: TextStyle(
