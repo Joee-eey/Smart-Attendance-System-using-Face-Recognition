@@ -84,14 +84,8 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
   List<String> selectedFilters = ["All"];
   String sortOrder = "A-Z";
 
-  // List<UserItem> users = [
-  //   UserItem("Alex Rivera", "alex.rivera@company.com", "Admin", "Email"),
-  //   UserItem("Jordan Smith", "j.smith@microsoft.org", "User", "Microsoft"),
-  //   UserItem("Taylor Chen", "t.chen@google.com", "User", "Google"),
-  //   UserItem("Sarah Wilson", "s.wilson@corp.com", "User", "Email"),
-  // ];
-
   List<UserItem> users = [];
+  List<UserItem> usersBackup = [];
 
   @override
   void initState() {
@@ -104,19 +98,40 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
     return role[0].toUpperCase() + role.substring(1);
   }
 
-  Future<void> fetchUsers() async {
+  // Future<void> fetchUsers({String search = ""}) async {
+  //   final baseUrl = dotenv.env['BASE_URL']!;
+  //   final url = Uri.parse('$baseUrl/sa/users?search=$search');
+
+  //   try {
+  //     final response = await http.get(url);
+
+  //     if (response.statusCode == 200) {
+  //       final List data = jsonDecode(response.body);
+
+  //       setState(() {
+  //         users = data.map((e) => UserItem.fromJson(e)).toList();
+  //       });
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Error fetching users: $e");
+  //   }
+  // }
+
+  Future<void> fetchUsers({String search = ""}) async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/sa/users');
+    final url = Uri.parse('$baseUrl/sa/users?search=$search');
+
     try {
-      final response = await http.get(
-        url,
-      );
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
 
         setState(() {
           users = data.map((e) => UserItem.fromJson(e)).toList();
+          usersBackup =
+              List.from(users); // <-- keep a copy for filtering/sorting
+          _applyFilterAndSort(); // optional: apply any existing filter/sort
         });
       }
     } catch (e) {
@@ -149,7 +164,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
             builder: (context, menuSetState) {
               const subFilters = [
                 "Admin",
-                "User",
+                "Superadmin",
                 "Email",
                 "Google",
                 "Microsoft"
@@ -161,7 +176,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                   size: 18,
                 ),
                 child: SizedBox(
-                  width: 100,
+                  width: 120,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,6 +193,8 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                         ),
                       ),
                       const Divider(color: Color(0xFFFFFFFF), thickness: 1),
+
+                      // Filters
                       ...["All", ...subFilters].map((item) {
                         bool checked = selectedFilters.contains(item);
                         return _buildSelectionRow(
@@ -186,47 +203,54 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                               ? Icons.check_box_rounded
                               : Icons.check_box_outline_blank_rounded,
                           onTap: () {
-                            setState(() {
-                              menuSetState(() {
-                                if (item == "All") {
-                                  if (checked) {
-                                    selectedFilters = [];
-                                  } else {
-                                    selectedFilters = ["All", ...subFilters];
-                                  }
+                            menuSetState(() {
+                              if (item == "All") {
+                                if (checked) {
+                                  selectedFilters = [];
                                 } else {
-                                  if (checked) {
-                                    selectedFilters.remove(item);
-                                    selectedFilters.remove("All");
-                                  } else {
-                                    selectedFilters.add(item);
-                                    if (subFilters.every((element) =>
-                                        selectedFilters.contains(element))) {
-                                      selectedFilters.add("All");
-                                    }
+                                  selectedFilters = ["All", ...subFilters];
+                                }
+                              } else {
+                                if (checked) {
+                                  selectedFilters.remove(item);
+                                  selectedFilters.remove("All");
+                                } else {
+                                  selectedFilters.add(item);
+                                  if (subFilters.every((element) =>
+                                      selectedFilters.contains(element))) {
+                                    selectedFilters.add("All");
                                   }
                                 }
-                              });
+                              }
                             });
+
+                            _applyFilterAndSort(); // <-- Apply filter + sort
                           },
                         );
                       }).toList(),
+
                       const Divider(color: Color(0xFFFFFFFF), thickness: 1),
+
+                      // Sort options
                       _buildSelectionRow(
                         label: "A to Z",
                         icon: sortOrder == "A-Z"
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
-                        onTap: () => setState(
-                            () => menuSetState(() => sortOrder = "A-Z")),
+                        onTap: () {
+                          menuSetState(() => sortOrder = "A-Z");
+                          _applyFilterAndSort(); // Apply after change
+                        },
                       ),
                       _buildSelectionRow(
                         label: "Z to A",
                         icon: sortOrder == "Z-A"
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
-                        onTap: () => setState(
-                            () => menuSetState(() => sortOrder = "Z-A")),
+                        onTap: () {
+                          menuSetState(() => sortOrder = "Z-A");
+                          _applyFilterAndSort(); // Apply after change
+                        },
                       ),
                     ],
                   ),
@@ -237,6 +261,46 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
         ),
       ],
     );
+  }
+
+  // Filter and sort users based on selectedFilters and sortOrder
+  void _applyFilterAndSort() {
+    List<UserItem> filtered = List.from(usersBackup); // original list
+
+    // Filtering
+    if (!selectedFilters.contains("All") && selectedFilters.isNotEmpty) {
+      filtered = filtered.where((user) {
+        // Lowercase for comparison
+        final userRole = user.role.toLowerCase();
+        final userProvider = user.provider.toLowerCase();
+
+        bool roleMatch =
+            (selectedFilters.contains("Admin") && userRole == "admin") ||
+                (selectedFilters.contains("Superadmin") &&
+                    userRole == "superadmin");
+
+        bool providerMatch = (selectedFilters.contains("Email") &&
+                userProvider == "email") ||
+            (selectedFilters.contains("Google") && userProvider == "google") ||
+            (selectedFilters.contains("Microsoft") &&
+                userProvider == "microsoft");
+
+        return roleMatch || providerMatch;
+      }).toList();
+    }
+
+    // Sorting
+    if (sortOrder == "A-Z") {
+      filtered
+          .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } else if (sortOrder == "Z-A") {
+      filtered
+          .sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+    }
+
+    setState(() {
+      users = filtered; // update UI
+    });
   }
 
   Widget _buildSelectionRow({
@@ -286,6 +350,10 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
               borderSide: const BorderSide(color: Color(0xFFF6F6F6), width: 1),
             ),
           ),
+          onChanged: (value) {
+            // Call your search function every time the user types
+            fetchUsers(search: value);
+          },
         ),
         const SizedBox(height: 5),
         IconButton(

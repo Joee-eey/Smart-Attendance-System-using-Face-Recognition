@@ -4,6 +4,8 @@ import hashlib
 from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
+from flask import request, jsonify
+from flask_bcrypt import Bcrypt
 
 sa_dashboard_bp = Blueprint('sa_dashboard', __name__)
 load_dotenv()
@@ -39,6 +41,15 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     cursor.close()
     
     
+
+
+bcrypt = Bcrypt()
+
+def hash_password(password: str) -> str:
+    """Generate a bcrypt hash from the plain password."""
+    return bcrypt.generate_password_hash(password).decode('utf-8')
+
+
 @sa_dashboard_bp.route("/sa/add", methods=["POST"])
 def add_superadmin():
     data = request.json
@@ -48,19 +59,27 @@ def add_superadmin():
     role = data.get("role", "superadmin")
     user_id = data.get("user_id")
 
+    # Validate required fields
     if not username or not email or not password or not user_id:
         return jsonify({"error": "Missing fields"}), 400
 
-    hashed_password = hash_password(password)
+    # Hash the password safely
+    try:
+        hashed_password = hash_password(password)
+    except Exception as e:
+        print("Password hashing failed:", e)
+        return jsonify({"error": "Failed to hash password"}), 500
 
     db = get_db_connection()
-    cursor = db.cursor(dictionary=True)  # <- dictionary=True here
+    cursor = db.cursor(dictionary=True)
 
     try:
+        # Check if email already exists
         cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cursor.fetchone():
             return jsonify({"error": "Email already exists"}), 409
 
+        # Insert new Super Admin
         cursor.execute("""
             INSERT INTO users (username, email, password, role)
             VALUES (%s, %s, %s, %s)
@@ -68,7 +87,7 @@ def add_superadmin():
         db.commit()
         new_admin_id = cursor.lastrowid
 
-        # Get admin's name performing this action
+        # Get the admin name who is performing this action
         cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
         user_row = cursor.fetchone()
         admin_name = user_row['username'] if user_row else f"User ID {user_id}"
@@ -84,13 +103,14 @@ def add_superadmin():
         )
 
         return jsonify({"message": "Super Admin added successfully"}), 200
+
     except Exception as e:
-        print(e)
+        print("Database error:", e)
         return jsonify({"error": "Failed to add Super Admin"}), 500
+
     finally:
         cursor.close()
         db.close()
-
 
 @sa_dashboard_bp.route("/sa/stats/users", methods=["GET"])
 def get_user_stats():
@@ -168,6 +188,7 @@ def get_admin_stats():
         cursor.close()
         conn.close()
 
+
 @sa_dashboard_bp.route("/sa/stats/students", methods=["GET"])
 def get_student_stats():
     try:
@@ -178,6 +199,14 @@ def get_student_stats():
         cursor.execute("SELECT COUNT(*) as total FROM students")
         total_students = cursor.fetchone()['total']
 
+        # Students today
+        cursor.execute("""
+            SELECT COUNT(*) as total_today
+            FROM students
+            WHERE DATE(created_at) = CURDATE()
+        """)
+        total_today = cursor.fetchone()['total_today']
+
         # Students yesterday
         cursor.execute("""
             SELECT COUNT(*) as total_yesterday
@@ -186,10 +215,10 @@ def get_student_stats():
         """)
         total_yesterday = cursor.fetchone()['total_yesterday']
 
-        # Growth %
+        # Growth % (from yesterday to today)
         growth_percent = 0.0
         if total_yesterday > 0:
-            growth_percent = ((total_students - total_yesterday) / total_yesterday) * 100
+            growth_percent = max(0, ((total_today - total_yesterday) / total_yesterday) * 100)
 
         return jsonify({
             "total": total_students,
@@ -197,11 +226,13 @@ def get_student_stats():
         }), 200
 
     except Exception as e:
-        print("[ERROR] Fetch student stats failed:", e)
-        return jsonify({"message": "Failed to fetch stats"}), 500
+        print("Error fetching student stats:", str(e))
+        return jsonify({"error": str(e)}), 500
+
     finally:
         cursor.close()
         conn.close()
+
 
 
 @sa_dashboard_bp.route("/sa/user/<int:user_id>", methods=["GET"])

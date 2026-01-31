@@ -19,6 +19,7 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> loginSuperAdmin() async {
     final email = emailController.text.trim();
@@ -128,6 +129,7 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
           statusBarIconBrightness: Brightness.light,
         ),
         child: Scaffold(
+          backgroundColor: Color(0xFF1565C0),
           body: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 30),
             child: Center(
@@ -195,12 +197,11 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
                     ),
                     SizedBox(height: 15),
 
-                    // Password
                     SizedBox(
                       height: 48,
                       child: TextField(
                         controller: passwordController,
-                        obscureText: true,
+                        obscureText: _obscurePassword, // toggle this
                         decoration: InputDecoration(
                           hintText: 'Password',
                           hintStyle:
@@ -213,12 +214,25 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
                           ),
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 15, vertical: 10),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
                         ),
                         style: TextStyle(color: Color(0xB3FFFFFF)),
                       ),
                     ),
                     SizedBox(height: 5),
-
                     // Forgot Password
                     Align(
                       alignment: Alignment.centerRight,

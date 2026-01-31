@@ -35,17 +35,63 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     cursor.close()
     
 
+# @sa_user_bp.route("/sa/users", methods=["GET"])
+# def get_users():
+#     conn = get_db_connection()
+#     cursor = conn.cursor(dictionary=True)
+
+#     cursor.execute("""
+#         SELECT id, username, email, role, auth_provider
+#         FROM users
+#         ORDER BY username ASC
+#     """)
+    
+#     rows = cursor.fetchall()
+#     print("🟢 Rows fetched:", rows)
+
+#     cursor.close()
+#     conn.close()
+
+#     users = []
+#     for row in rows:
+#         users.append({
+#             "id":row["id"],
+#             "name": row["username"],
+#             "email": row["email"],
+#             "role": row["role"],
+#             "provider": row["auth_provider"]
+#         })
+
+#     return jsonify(users)
+
+
 @sa_user_bp.route("/sa/users", methods=["GET"])
 def get_users():
+    search = request.args.get('search', '').lower()  # get search term, default empty
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT id, username, email, role, auth_provider
-        FROM users
-        ORDER BY username ASC
-    """)
-    
+    if search:
+        # Filter users by name, email, role, auth_provider
+        query = """
+            SELECT id, username, email, role, auth_provider
+            FROM users
+            WHERE LOWER(username) LIKE %s
+            OR LOWER(email) LIKE %s
+            OR LOWER(role) LIKE %s
+            OR LOWER(auth_provider) LIKE %s
+            ORDER BY username ASC
+        """
+        like_pattern = f"%{search}%"
+        cursor.execute(query, (like_pattern, like_pattern, like_pattern, like_pattern))
+    else:
+        # Return all users if no search
+        cursor.execute("""
+            SELECT id, username, email, role, auth_provider
+            FROM users
+            ORDER BY username ASC
+        """)
+
     rows = cursor.fetchall()
     print("🟢 Rows fetched:", rows)
 
@@ -55,7 +101,7 @@ def get_users():
     users = []
     for row in rows:
         users.append({
-            "id":row["id"],
+            "id": row["id"],
             "name": row["username"],
             "email": row["email"],
             "role": row["role"],

@@ -14,6 +14,7 @@ import 'package:userinterface/sa_dashboard.dart';
 import 'package:userinterface/sa_users.dart';
 import 'package:userinterface/sa_settings.dart';
 import 'package:userinterface/sa_logs.dart';
+import 'package:userinterface/sa_changepsw.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -49,6 +50,7 @@ class SmartAttendanceApp extends StatelessWidget {
         "/sa/logs": (context) => const SuperAdminLogsPage(),
         "/sa/users": (context) => const SuperAdminUsersPage(),
         "/sa/settings": (context) => const SuperAdminSettingsPage(),
+        "/sa/users/change-password": (context) => const SuperAdminChangePasswordPage(),
       },
       home: const HomePage(),
     );

@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 
@@ -63,13 +65,136 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   String _username = "";
   String _email = "";
   bool _isUserLoading = true;
+  File? _selectedImage;
+  String? _profileImageUrl;
 
   @override
   void initState() {
     super.initState();
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    final userId = authProvider.userId;
+
     _fetchUserStats();
     _fetchAdminStats();
     _fetchStudentStats();
+
+    if (userId != null) {
+      _fetchUserProfile(userId);
+    }
+  }
+
+  void _showPhotoOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded),
+                title: const Text('Choose existing photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_rounded),
+                title: const Text('View Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _viewPhoto();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      File imageFile = File(pickedFile.path);
+      setState(() {
+        _selectedImage = imageFile;
+      });
+      await _uploadPhoto(imageFile);
+    }
+  }
+
+  void _viewPhoto() {
+    if (_profileImageUrl == null && _selectedImage == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                image: DecorationImage(
+                  image: (_selectedImage != null
+                      ? FileImage(_selectedImage!)
+                      : NetworkImage(_profileImageUrl!)) as ImageProvider,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close",
+                  style: TextStyle(fontSize: 18, color: Colors.white)),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadPhoto(File imageFile) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    try {
+      var request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/users/upload_photo'));
+      request.fields['user_id'] = userId.toString();
+      request.files
+          .add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        final resBody = await response.stream.bytesToString();
+        final data = jsonDecode(resBody);
+        _fetchUserProfile(userId!);
+
+        setState(() {
+          _profileImageUrl = data['image_url'].startsWith('http')
+              ? data['image_url']
+              : '${dotenv.env['BASE_URL']!}/${data['image_url']}';
+          _selectedImage = null; // clear selected image after updating URL
+        });
+      }
+    } catch (e) {
+      log("Upload error: $e");
+    }
   }
 
   Future<void> _fetchUserStats() async {
@@ -147,25 +272,32 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
         setState(() {
           _username = data['username'];
           _email = data['email'];
+          _profileImageUrl = data['image_url'] != null
+              ? (data['image_url'].startsWith('http')
+                  ? data['image_url']
+                  : '$baseUrl/${data['image_url']}')
+              : null;
           _isUserLoading = false;
         });
       } else {
         setState(() {
           _username = "Unknown";
           _email = "Unknown";
+          _profileImageUrl = null;
           _isUserLoading = false;
         });
       }
     } catch (e) {
       log("Error fetching user profile: $e");
-      setState(() => _isUserLoading = false);
+      setState(() {
+        _isUserLoading = false;
+        _profileImageUrl = null;
+      });
     }
   }
 
-  // Profile Dialog
+// Profile Dialog
   Future<void> _showProfileDialog() async {
-    // final String username = "Alex Rivera";
-    // final String email = "alex.rivera@company.com";
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
     setState(() => _isUserLoading = true);
@@ -209,28 +341,73 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                 // Avatar Upload Section
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0x1A000000),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        size: 30,
-                        color: Color(0xB3000000),
-                      ),
+                    StatefulBuilder(
+                      builder: (context, setStateDialog) {
+                        // Compute avatar image
+                        ImageProvider<Object>? avatarImage;
+                        if (_selectedImage != null) {
+                          avatarImage = FileImage(_selectedImage!);
+                        } else if (_profileImageUrl != null &&
+                            _profileImageUrl!.isNotEmpty) {
+                          avatarImage = NetworkImage(_profileImageUrl!);
+                        } else {
+                          avatarImage = null;
+                        }
+
+                        return GestureDetector(
+                          onTap: () async {
+                            final picker = ImagePicker();
+                            final pickedFile = await picker.pickImage(
+                                source: ImageSource.gallery);
+
+                            if (pickedFile != null) {
+                              File imageFile = File(pickedFile.path);
+
+                              // Update the dashboard state
+                              setState(() => _selectedImage = imageFile);
+
+                              // Update the dialog UI immediately
+                              setStateDialog(() {});
+
+                              // Upload to server
+                              await _uploadPhoto(imageFile);
+
+                              // Refresh the dialog avatar after upload
+                              setStateDialog(() {});
+                            }
+                          },
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: const Color(0x1A000000),
+                            backgroundImage: avatarImage,
+                            child: avatarImage == null
+                                ? const Icon(
+                                    Icons.person_rounded,
+                                    size: 30,
+                                    color: Color(0xB3000000),
+                                  )
+                                : null,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          "Update Photo",
-                          style: TextStyle(
-                            color: Color(0xFF1565C0),
-                            fontWeight: FontWeight.w600,
+                      children: [
+                        GestureDetector(
+                          onTap:
+                              _showPhotoOptions, // keeps your existing function
+                          child: const Text(
+                            "Update Photo",
+                            style: TextStyle(
+                              color: Color(0xFF1565C0),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        SizedBox(height: 2),
-                        Text(
+                        const SizedBox(height: 2),
+                        const Text(
                           "JPG or PNG, max 5MB",
                           style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
@@ -238,8 +415,8 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
 
+                const SizedBox(height: 10),
                 const Text(
                   "Username",
                   style: TextStyle(fontWeight: FontWeight.w500),
@@ -258,14 +435,18 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                     ),
                   ),
                   child: _isUserLoading
-                      ? const CircularProgressIndicator()
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : Text(
                           _username,
                           style: const TextStyle(color: Colors.black87),
                         ),
                 ),
-                const SizedBox(height: 10),
 
+                const SizedBox(height: 10),
                 const Text(
                   "Email",
                   style: TextStyle(fontWeight: FontWeight.w500),
@@ -301,7 +482,9 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/sa/users/change-password');
+                    },
                     child: const Text(
                       "Change Password",
                       style: TextStyle(
@@ -314,46 +497,45 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                 const SizedBox(height: 15),
 
                 SizedBox(
-                  width: double.infinity,
-                  height: 45,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEB3349),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () async {
-                      final authProvider =
-                          Provider.of<AuthProvider>(context, listen: false);
-                      final userId = authProvider.userId;
+                    width: double.infinity,
+                    height: 45,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEB3349),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () async {
+                        final authProvider =
+                            Provider.of<AuthProvider>(context, listen: false);
+                        final userId = authProvider.userId;
 
-                      try {
-                        final baseUrl = dotenv.env['BASE_URL']!;
-                        final response = await http.post(
-                          Uri.parse('$baseUrl/sa/logout'),
-                          headers: {"Content-Type": "application/json"},
-                          body: jsonEncode({"user_id": userId}),
-                        );
+                        try {
+                          final baseUrl = dotenv.env['BASE_URL']!;
+                          final response = await http.post(
+                            Uri.parse('$baseUrl/sa/logout'),
+                            headers: {"Content-Type": "application/json"},
+                            body: jsonEncode({"user_id": userId}),
+                          );
 
-                        if (response.statusCode == 200) {
-                          log("Logout logged successfully");
-                        } else {
-                          log("Failed to log logout: ${response.body}");
+                          if (response.statusCode == 200) {
+                            log("Logout logged successfully");
+                          } else {
+                            log("Failed to log logout: ${response.body}");
+                          }
+                        } catch (e) {
+                          log("Error logging logout: $e");
                         }
-                      } catch (e) {
-                        log("Error logging logout: $e");
-                      }
-                      await authProvider.signOut();
-                      Navigator.pushReplacementNamed(
-                          context, "/sa/login"); // or your login page
-                    },
-                    child: const Text(
-                      "Sign Out",
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
+                        await authProvider.signOut();
+                        Navigator.pushReplacementNamed(
+                            context, "/sa/login"); // or your login page
+                      },
+                      child: const Text(
+                        "Sign Out",
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ))
               ],
             ),
           ),
@@ -598,21 +780,38 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // Profifle Avatar
+              // Profile Avatar
               Positioned(
                 top: -10,
                 right: 16,
                 child: GestureDetector(
                   onTap: _showProfileDialog,
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0x1A000000),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      size: 30,
-                      color: Color(0xB3000000),
-                    ),
-                  ),
+                  child: Builder(builder: (context) {
+                    // Compute the avatar image safely
+                    ImageProvider<Object>? avatarImage;
+
+                    if (_selectedImage != null) {
+                      avatarImage = FileImage(_selectedImage!);
+                    } else if (_profileImageUrl != null &&
+                        _profileImageUrl!.isNotEmpty) {
+                      avatarImage = NetworkImage(_profileImageUrl!);
+                    } else {
+                      avatarImage = null;
+                    }
+
+                    return CircleAvatar(
+                      radius: 20,
+                      backgroundColor: const Color(0x1A000000),
+                      backgroundImage: avatarImage,
+                      child: avatarImage == null
+                          ? const Icon(
+                              Icons.person_rounded,
+                              size: 30,
+                              color: Color(0xB3000000),
+                            )
+                          : null,
+                    );
+                  }),
                 ),
               ),
 

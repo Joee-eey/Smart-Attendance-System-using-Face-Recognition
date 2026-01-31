@@ -41,28 +41,29 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     final userId = authProvider.userId;
 
     try {
-    final baseUrl = dotenv.env['BASE_URL']!;
-    final response = await http.get(Uri.parse('$baseUrl/users/$userId'));
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await http.get(Uri.parse('$baseUrl/users/$userId'));
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      setState(() {
-        _usernameController.text = data['username'] ?? '';
-        _emailController.text = data['email'] ?? '';
-        
-        // REMARK: Update to the correct key from your Flask SELECT statement
-        if (data['profile_image_url'] != null && data['profile_image_url'].toString().isNotEmpty) {
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _usernameController.text = data['username'] ?? '';
+          _emailController.text = data['email'] ?? '';
+
+          // REMARK: Update to the correct key from your Flask SELECT statement
+          if (data['profile_image_url'] != null &&
+              data['profile_image_url'].toString().isNotEmpty) {
             _profileImageUrl = '$baseUrl/${data['profile_image_url']}';
             // Clear the local temporary file since we now have the saved one from server
-            _selectedImage = null; 
+            _selectedImage = null;
           }
-        _isProfileLoading = false;
-      });
+          _isProfileLoading = false;
+        });
+      }
+    } catch (e) {
+      log("Error fetching profile: $e");
     }
-  } catch (e) {
-    log("Error fetching profile: $e");
   }
-}
 
   Future<void> _uploadPhoto(File imageFile) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -70,19 +71,21 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     final baseUrl = dotenv.env['BASE_URL']!;
 
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/users/upload_photo'));
+      var request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/users/upload_photo'));
       request.fields['user_id'] = userId.toString();
-      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      request.files
+          .add(await http.MultipartFile.fromPath('image', imageFile.path));
 
       var response = await request.send();
-    if (response.statusCode == 200) {
-      log("Uploaded and saved to database!");
-      _fetchProfile();
+      if (response.statusCode == 200) {
+        log("Uploaded and saved to database!");
+        _fetchProfile();
+      }
+    } catch (e) {
+      log("Upload error: $e");
     }
-  } catch (e) {
-    log("Upload error: $e");
   }
-}
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -99,7 +102,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
 
   void _viewPhoto() {
     if (_profileImageUrl == null && _selectedImage == null) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -113,8 +116,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 image: DecorationImage(
-                  image: (_selectedImage != null 
-                      ? FileImage(_selectedImage!) 
+                  image: (_selectedImage != null
+                      ? FileImage(_selectedImage!)
                       : NetworkImage(_profileImageUrl!)) as ImageProvider,
                   fit: BoxFit.cover,
                 ),
@@ -122,7 +125,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Close", style: TextStyle(fontSize: 18, color: Colors.white)),
+              child: const Text("Close",
+                  style: TextStyle(fontSize: 18, color: Colors.white)),
             )
           ],
         ),
@@ -197,7 +201,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 const Text(
                   "Sign Out?",
                   style: TextStyle(
-                    fontSize: 18, 
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
@@ -222,7 +226,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                         ),
                         child: const Text(
                           "Cancel",
-                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                              color: Colors.grey, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -276,19 +281,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       }
 
       await authProvider.signOut();
-      
+
       if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-        (_) => false,
-      );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+          (_) => false,
+        );
+      }
     }
   }
-}
 
   void _setupAttendanceReminder() {
-     log("Attendance reminders activated linking to attendance.dart logic");
+    log("Attendance reminders activated linking to attendance.dart logic");
   }
 
   @override
@@ -380,15 +385,23 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.grey,
-                              image: _selectedImage != null 
-                                ? DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover)
-                                : (_profileImageUrl != null 
-                                    ? DecorationImage(image: NetworkImage(_profileImageUrl!), fit: BoxFit.cover)
-                                    : null),
+                              image: _selectedImage != null
+                                  ? DecorationImage(
+                                      image: FileImage(_selectedImage!),
+                                      fit: BoxFit.cover)
+                                  : (_profileImageUrl != null
+                                      ? DecorationImage(
+                                          image:
+                                              NetworkImage(_profileImageUrl!),
+                                          fit: BoxFit.cover)
+                                      : null),
                             ),
-                            child: (_selectedImage == null && _profileImageUrl == null)
-                              ? const Center(child: Icon(Icons.person_rounded, size: 30, color: Colors.white)) 
-                              : null,
+                            child: (_selectedImage == null &&
+                                    _profileImageUrl == null)
+                                ? const Center(
+                                    child: Icon(Icons.person_rounded,
+                                        size: 30, color: Colors.white))
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 15),
@@ -493,7 +506,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const ChangePasswordPage()),
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    const ChangePasswordPage()),
                           );
                         },
                         child: const Text(

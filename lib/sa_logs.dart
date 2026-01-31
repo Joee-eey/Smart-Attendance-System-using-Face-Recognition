@@ -4,29 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:io';
 import 'package:intl/intl.dart';
 
 String formatTimestamp(String raw) {
-  final date = DateTime.parse(raw).toLocal();
+  final date = HttpDate.parse(raw).toLocal();
   return DateFormat('dd MMM yyyy, hh:mm:ss a').format(date);
 }
-
-// void main() {
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
-//   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-//     systemNavigationBarColor: Colors.white,
-//     systemNavigationBarDividerColor: Colors.white,
-//     systemNavigationBarIconBrightness: Brightness.dark,
-//     systemNavigationBarContrastEnforced: true,
-//     statusBarColor: Colors.white,
-//     statusBarIconBrightness: Brightness.dark,
-//   ));
-
-//   runApp(const SuperAdminLogsApp());
-// }
 
 class SuperAdminLogsApp extends StatelessWidget {
   const SuperAdminLogsApp({super.key});
@@ -116,7 +100,7 @@ class UserItem {
       title: prettyTitle(action),
       description: json['description'],
       icon: icon,
-      timestamp: json['created_at'],
+      timestamp: formatTimestamp(json['created_at']),
     );
   }
 }
@@ -147,6 +131,7 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
   // ];
 
   List<UserItem> logs = [];
+  List<UserItem> logsBackup = [];
   bool _isLoading = true;
 
   @override
@@ -155,16 +140,20 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
     _fetchLogs();
   }
 
-  Future<void> _fetchLogs() async {
+  Future<void> _fetchLogs({String search = ""}) async {
+    setState(() => _isLoading = true);
+
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
-      final response = await http.get(Uri.parse('$baseUrl/sa/logs'));
+      final url = Uri.parse('$baseUrl/sa/logs?search=$search');
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
 
         setState(() {
           logs = data.map((e) => UserItem.fromJson(e)).toList();
+          logsBackup = List.from(logs); // save original order
           _isLoading = false;
         });
       } else {
@@ -205,7 +194,7 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
                   size: 18,
                 ),
                 child: SizedBox(
-                  width: 110,
+                  width: 140, // widened to reduce overflow
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,8 +215,11 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
                         return _buildRadioRow(
                           label: option,
                           selected: sortOrder == option,
-                          onTap: () => setState(
-                              () => menuSetState(() => sortOrder = option)),
+                          onTap: () {
+                            menuSetState(
+                                () => sortOrder = option); // update popup
+                            _applySort(); // apply sorting to logs
+                          },
                         );
                       }).toList(),
                     ],
@@ -239,6 +231,30 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
         ),
       ],
     );
+  }
+
+  void _applySort() {
+    List<UserItem> sorted = List.from(logsBackup);
+
+    if (sortOrder == "Date: Latest") {
+      sorted.sort((a, b) {
+        final dateA = DateFormat('dd MMM yyyy, hh:mm:ss a').parse(a.timestamp);
+        final dateB = DateFormat('dd MMM yyyy, hh:mm:ss a').parse(b.timestamp);
+        return dateB.compareTo(dateA); // newest first
+      });
+    } else if (sortOrder == "Date: Earliest") {
+      sorted.sort((a, b) {
+        final dateA = DateFormat('dd MMM yyyy, hh:mm:ss a').parse(a.timestamp);
+        final dateB = DateFormat('dd MMM yyyy, hh:mm:ss a').parse(b.timestamp);
+        return dateA.compareTo(dateB); // oldest first
+      });
+    } else {
+      sorted = List.from(logsBackup); // default order
+    }
+
+    setState(() {
+      logs = sorted;
+    });
   }
 
   Widget _buildRadioRow({
@@ -274,6 +290,9 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
       children: [
         TextField(
           controller: _searchController,
+          onChanged: (value) {
+            _fetchLogs(search: value); // Fetch logs with search
+          },
           decoration: InputDecoration(
             hintText: "Search",
             hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
