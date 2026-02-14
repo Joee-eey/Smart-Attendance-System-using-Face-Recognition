@@ -81,6 +81,42 @@ def get_attendance():
             cursor.close()
             conn.close()
 
+@attendance_bp.route("/attendance/manual", methods=["POST"])
+def mark_manual():
+    try:
+        data = request.json
+        class_id = data.get("class_id")
+        student_id = data.get("student_id")
+        status = data.get("status", "Present")
+        today = datetime.now().date()
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if record exists for today, if yes update, else insert
+        query = """
+            INSERT INTO attendance (class_id, student_id, date, status)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE status = VALUES(status)
+        """
+        cursor.execute(query, (class_id, student_id, today, status))
+
+        update_subject_query = """
+            UPDATE subjects 
+            SET updated_at = NOW() 
+            WHERE id = (SELECT subject_id FROM classes WHERE id = %s)
+        """
+        cursor.execute(update_subject_query, (class_id,))
+        conn.commit()
+
+        return jsonify({"message": "Status updated"}), 200
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @attendance_bp.route("/attendance/summary", methods=["GET"])
 def get_attendance_summary():

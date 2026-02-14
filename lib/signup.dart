@@ -23,6 +23,7 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _acceptedTerms = false;
+  bool _obscurePassword = true;
 
   Future<void> registerUser(
     String username,
@@ -170,11 +171,26 @@ class _SignupPageState extends State<SignupPage> {
               height: 48,
               child: TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 style: const TextStyle(color: Colors.black, fontSize: 15),
-                decoration: const InputDecoration(
+                textAlignVertical: TextAlignVertical.center,
+                decoration: InputDecoration(
+                  isDense: true, 
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
                   hintText: 'Password',
                   hintStyle: TextStyle(color: Colors.grey),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
               ),
             ),

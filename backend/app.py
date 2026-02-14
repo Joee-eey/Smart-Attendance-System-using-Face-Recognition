@@ -8,6 +8,7 @@ from dashboard import dashboard_bp
 from enroll import enroll_bp
 from recognize import recognize_bp
 from attendance import attendance_bp
+from reports import reports_bp
 from setting import setting_bp
 from sa_login import sa_login_bp
 from sa_dashboard import sa_dashboard_bp
@@ -27,6 +28,7 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(enroll_bp)
 app.register_blueprint(recognize_bp)
 app.register_blueprint(attendance_bp)
+app.register_blueprint(reports_bp)
 app.register_blueprint(setting_bp)
 app.register_blueprint(sa_login_bp)
 app.register_blueprint(sa_dashboard_bp)

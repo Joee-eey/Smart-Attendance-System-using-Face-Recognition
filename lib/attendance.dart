@@ -18,6 +18,7 @@ class Attendance extends StatefulWidget {
 }
 
 class _AttendanceState extends State<Attendance> {
+  List<Map<String, dynamic>> masterAttendanceList = [];
   List<Map<String, dynamic>> attendanceList = [];
   bool isLoading = true;
 
@@ -25,6 +26,7 @@ class _AttendanceState extends State<Attendance> {
   String sortOrder = "A-Z"; 
 
   final GlobalKey _filterKey = GlobalKey();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -200,20 +202,25 @@ class _AttendanceState extends State<Attendance> {
 
   void _applySortFilter() {
     setState(() {
-      List<Map<String, dynamic>> filtered = List.from(attendanceList);
+      List<Map<String, dynamic>> filtered = List.from(masterAttendanceList);
+
+      String query = _searchController.text.toLowerCase();
+      if (query.isNotEmpty) {
+        filtered = filtered.where((item) {
+          return item['name'].toString().toLowerCase().contains(query) ||
+                item['student_card_id'].toString().toLowerCase().contains(query);
+        }).toList();
+      }
 
       if (!selectedFilters.contains("All")) {
-        if (selectedFilters.contains("Present")) {
-          filtered = filtered
-              .where((item) => item['status'].toString().toLowerCase() == 'present')
-              .toList();
-        }
-        if (selectedFilters.contains("Absent")) {
-          filtered = filtered
-              .where((item) => item['status'].toString().toLowerCase() == 'absent')
-              .toList();
-        }
-      }
+      filtered = filtered.where((item) {
+        String status = item['status'].toString().toLowerCase();
+        bool matchesPresent = selectedFilters.contains("Present") && status == 'present';
+        bool matchesAbsent = selectedFilters.contains("Absent") && status == 'absent';
+        
+        return matchesPresent || matchesAbsent;
+      }).toList();
+    }
 
       filtered.sort((a, b) {
         final nameA = a['name'].toString().toLowerCase();
@@ -225,6 +232,114 @@ class _AttendanceState extends State<Attendance> {
     });
   }
 
+  void _showManualAttendanceDialog(int studentId, String name) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration( // Added const here
+                color: Color(0xFFE3F2FD),
+                shape: BoxShape.circle,
+              ),
+              child: Icon( // Removed const here
+                Icons.how_to_reg_rounded,
+                color: const Color(0xFF1565C0),
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "Manual Attendance",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: const TextStyle(color: Colors.grey, fontSize: 15, height: 1.5),
+                children: [
+                  const TextSpan(text: "Are you sure you want to mark\n"),
+                  TextSpan(
+                    text: name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const TextSpan(text: " as "),
+                  const TextSpan(
+                    text: "Present",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00B38A),
+                    ),
+                  ),
+                  const TextSpan(text: "?"),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Color(0xFFE0E0E0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      "Cancel",
+                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      markAsPresentManual(studentId);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1565C0),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      "Confirm",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
   Future<void> fetchAttendance(int classId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
@@ -235,18 +350,22 @@ class _AttendanceState extends State<Attendance> {
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         setState(() {
-          attendanceList = data
-              .map((e) => {
+          final List mappedData = data.map((e) => {
                     'id': e['id'],
+                    'student_id': e['student_id'],
                     'name': e['name'] ?? 'Unknown',
                     'student_card_id': e['student_card_id'] ?? '--',
                     'course': e['course'] ?? '--',
                     'time': e['time'] ?? '--:-- --',
                     'status': e['status'] ?? 'Absent',
+                    'face_image_url': e['face_image_url'] ?? '',
                     'date': e['date'] ?? '',
                   })
               .toList();
+          masterAttendanceList = List.from(mappedData);
+          attendanceList = List.from(mappedData);
           isLoading = false;
+          _applySortFilter();
         });
       if (attendanceList.isEmpty) {
           _notifyLecturer(classId);
@@ -262,6 +381,31 @@ class _AttendanceState extends State<Attendance> {
       });
     }
   }
+
+Future<void> markAsPresentManual(int studentId) async {
+  try {
+    final baseUrl = dotenv.env['BASE_URL']!;
+    final response = await http.post(
+      Uri.parse('$baseUrl/attendance/manual'),
+      body: jsonEncode({
+        'class_id': widget.classId,
+        'student_id': studentId,
+        'status': 'Present',
+      }),
+      headers: {"Content-Type": "application/json"},
+    );
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Student marked as Present")),
+      );
+      fetchAttendance(widget.classId);
+      fetchSummary(widget.classId);
+    }
+  } catch (e) {
+    log("Error marking manual attendance: $e");
+  }
+}
 
   Future<void> deleteAttendance(int id) async {
     try {
@@ -355,6 +499,8 @@ class _AttendanceState extends State<Attendance> {
             
             // Search Bar
             TextField(
+              controller: _searchController,
+              onChanged: (value) => _applySortFilter(),
               style: const TextStyle(
                 color: Color(0xFF000000),
               ),
@@ -503,7 +649,7 @@ class _AttendanceState extends State<Attendance> {
                 itemBuilder: (context, index) {
                   final record = attendanceList[index];
                   return Dismissible(
-                    key: Key(record['id'].toString()),
+                    key: Key(record['id'].toString() + record['status']),
                     background: Container(
                       margin: const EdgeInsets.symmetric(vertical: 4),
                       decoration: BoxDecoration(
@@ -600,6 +746,14 @@ class _AttendanceState extends State<Attendance> {
                       }
                       return false;
                     },
+
+                    child: GestureDetector(
+                      onLongPress: () {
+                        if (record['status'].toString().toLowerCase() == 'absent') {
+                          _showManualAttendanceDialog(record['student_id'], record['name']);
+                        }
+                      },
+
                     child: Container(
                       height: 78,
                       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -692,22 +846,102 @@ class _AttendanceState extends State<Attendance> {
                                 onTap: () async {
                                   bool confirmed = await showDialog(
                                     context: context,
-                                    builder: (_) => AlertDialog(
-                                      title: const Text("Delete record"),
-                                      content: const Text("This action cannot be undone."),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                          child: const Text("Cancel"),
+                                    builder: (context) => Dialog(
+                                      backgroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Red Trash Icon Header
+                                            Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFFFEBEE), // Very light red background
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.delete_forever_rounded,
+                                                color: Color(0xFFF84F31), // Your specific red color
+                                                size: 40,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 20),
+                                            
+                                            // Title
+                                            const Text(
+                                              "Are you sure?",
+                                              style: TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            
+                                            // Warning Text
+                                            const Text(
+                                              "Do you really want to delete this record?\nThis process cannot be undone.",
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 15,
+                                                height: 1.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 32),
+                                            
+                                            // Action Buttons
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: OutlinedButton(
+                                                    onPressed: () => Navigator.pop(context, false),
+                                                    style: OutlinedButton.styleFrom(
+                                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                                      backgroundColor: const Color(0xFFF6F6F6),
+                                                      side: const BorderSide(color: Color(0xFFF6F6F6)),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      "Cancel",
+                                                      style: TextStyle(
+                                                        color: Colors.grey,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: ElevatedButton(
+                                                    onPressed: () => Navigator.pop(context, true),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: const Color(0xFFF84F31), // Red action
+                                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                                      elevation: 0,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      "Delete",
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, true),
-                                          child: const Text(
-                                            "Delete",
-                                            style: TextStyle(color: Color(0xFFF84F31)),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   );
 
@@ -726,13 +960,14 @@ class _AttendanceState extends State<Attendance> {
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    ),
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(

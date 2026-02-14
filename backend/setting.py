@@ -43,12 +43,14 @@ def upload_photo():
         return jsonify({"message": "Missing file or user ID"}), 400
 
     try:
-        # REMARK: Fix 1 - Create the directory if it doesn't exist to avoid FileNotFoundError
+        # Create the directory if it doesn't exist to avoid FileNotFoundError
         upload_folder = 'static/uploads'
         if not os.path.exists(upload_folder):
             os.makedirs(upload_folder)
 
-        filename = f"profile_{user_id}.jpg"
+        # Get original extension (Exp: .png, .jpg)
+        ext = os.path.splitext(file.filename)[1]
+        filename = f"profile_{user_id}{ext}"
         filepath = os.path.join(upload_folder, filename)
         
         # Save the actual file
@@ -57,7 +59,6 @@ def upload_photo():
         # Path to store in the database (relative path)
         db_path = f"static/uploads/{filename}"
 
-        # REMARK: Fix 2 - Use mysql-connector instead of User.query (SQLAlchemy)
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -77,6 +78,36 @@ def upload_photo():
     finally:
         if 'cursor' in locals(): cursor.close()
         if 'conn' in locals(): conn.close()
+
+@setting_bp.route('/lecturer/<int:lecturer_id>/schedule', methods=['GET'])
+def get_lecturer_schedule(lecturer_id):
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # JOIN classes and subjects to get the name and time together
+        query = """
+            SELECT 
+                c.id, 
+                s.name AS course_name, 
+                c.schedule AS start_time 
+            FROM classes c
+            JOIN subjects s ON c.subject_id = s.id
+            WHERE s.lecturer_id = %s
+        """
+        cursor.execute(query, (lecturer_id,))
+        schedule = cursor.fetchall()
+
+        return jsonify(schedule), 200
+
+    except Exception as e:
+        print(f"[ERROR] Schedule fetch failed: {e}")
+        return jsonify({"message": str(e)}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
     
 @setting_bp.route('/logout', methods=['POST'])
 def logout():

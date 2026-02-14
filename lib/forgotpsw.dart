@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+/* void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key});*/
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +25,7 @@ class MyApp extends StatelessWidget {
       home: ForgotPassword(),
     );
   }
-}
+// }
 
 class ForgotPassword extends StatefulWidget {
   const ForgotPassword({super.key});
@@ -34,6 +37,63 @@ class ForgotPassword extends StatefulWidget {
 class _ForgotPasswordState extends State<ForgotPassword> {
   final TextEditingController _emailAddressController  =
       TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _verifyEmail() async {
+    final email = _emailAddressController.text.trim();
+
+    if (email.isEmpty) {
+      _showSnackBar("Please enter your email address");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5001'; 
+      final url = Uri.parse('$baseUrl/forgot-password');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        // SUCCESS: You would usually navigate to an OTP screen here
+        _showSuccessDialog(data['message'] ?? "Reset link sent to your email!");
+      } else {
+        // ERROR: Email not found or server error
+        _showSnackBar(data['message'] ?? "Something went wrong");
+      }
+    } catch (e) {
+      _showSnackBar("Connection error. Please try again.");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Success"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), // Close dialog
+            child: const Text("OK"),
+          )
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +125,8 @@ class _ForgotPasswordState extends State<ForgotPassword> {
               const SizedBox(height: 10),
               TextField(
                 controller: _emailAddressController,
-                obscureText: true,
+                keyboardType: TextInputType.emailAddress,
+                obscureText: false,
                 decoration: InputDecoration(
                   hintText: "Enter email address",
                   hintStyle: const TextStyle(color: Colors.black54),
@@ -91,21 +152,27 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {},
-                  child: const Text(
-                    "Verify Code",
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                  onPressed: _isLoading ? null : _verifyEmail,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text(
+                        "Verify Code",
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
+        );
+      }
+    }

@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -41,6 +42,7 @@ class AttendanceReportPage extends StatefulWidget {
 }
 
 class _AttendanceReportPageState extends State<AttendanceReportPage> {
+  String changeRate = "0%";
   String selectedRange = "Select Date";
   DateTime? selectedDate = DateTime.now();
 
@@ -50,26 +52,50 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
   
   int? selectedGroupId;
   int? selectedScheduleId;
+  int? currentUserId;
+  int? touchedIndex;
 
   String totalPresent = "----";
   String avgRate = "--.--%";
   String dailyRate = "--%";
+  List<String> trendDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   List<FlSpot> chartSpots = const [
     FlSpot(0, 0), FlSpot(1, 0), FlSpot(2, 0), 
     FlSpot(3, 0), FlSpot(4, 0), FlSpot(5, 0), FlSpot(6, 0)
   ];
   List<Map<String, dynamic>> studentDetails = [];
+  Map<String, dynamic> backendReportData = {'trends': []};
 
   @override
   void initState() {
     super.initState();
     selectedRange = DateFormat('dd MMM yyyy').format(selectedDate!);
-    _fetchGroups();
+    _loadUserAndFetchGroups();
   }
 
+  Future<void> saveUserSession(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('user_id', userId);
+  }
+
+  Future<void> _loadUserAndFetchGroups() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    // Get the ID saved during login.
+    currentUserId = prefs.getInt('user_id'); 
+  });
+
+  if (currentUserId != null) {
+    _fetchGroups();
+  } else {
+    log("No user session found.");
+  }
+}
+
   Future<void> _fetchGroups() async {
+    if (currentUserId == null) return;
     try {
-      final response = await http.get(Uri.parse('${dotenv.env['BASE_URL']}/api/subjects'));
+      final response = await http.get(Uri.parse('${dotenv.env['BASE_URL']}/api/subjects?user_id=$currentUserId'));
       if (response.statusCode == 200) {
         setState(() {
           backendGroups = jsonDecode(response.body);
@@ -98,22 +124,31 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
   }
 
   Future<void> _fetchReportData() async {
-    if (selectedScheduleId == null || selectedDate == null) return;
+    if (selectedGroupId == null) return;
 
     final formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate!);
-    final url = '${dotenv.env['BASE_URL']}/api/reports?class_id=$selectedScheduleId&date=$formattedDate';
+    // final url = '${dotenv.env['BASE_URL']}/api/reports?class_id=$selectedScheduleId&date=$formattedDate';
+    String url = '${dotenv.env['BASE_URL']}/api/reports?subject_id=$selectedGroupId&date=$formattedDate';
+
+    if (selectedScheduleId != null) {
+      url += '&class_id=$selectedScheduleId';
+    }
 
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        log("DEBUG: student_details first record: ${data['student_details'][0]}");
         setState(() {
+          backendReportData = data;
           totalPresent = data['total_present'].toString();
           avgRate = "${data['avg_rate']}%";
           dailyRate = "${data['daily_rate']}%";
+          changeRate = data['change_rate'] ?? "+0.0%";
           studentDetails = List<Map<String, dynamic>>.from(data['student_details']);
           
           List<dynamic> trends = data['trends'];
+          trendDays = trends.map((t) => t['day_name'].toString()).toList();
           chartSpots = List.generate(trends.length, (i) {
             return FlSpot(i.toDouble(), (trends[i]['rate'] as num).toDouble());
           });
@@ -126,12 +161,30 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
 
   Future<void> _pickSingleDate() async {
     final DateTime now = DateTime.now();
+    final Color primaryColor = const Color(0xFF1565C0);
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedDate ?? now,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 1),
-    );
+      builder: (context, child) {
+      return Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: primaryColor, // Header background and selected day circle
+            onPrimary: Colors.white, // Header text and selected day text
+            onSurface: Colors.black, // Body text color (days of the week)
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: primaryColor, // "OK" and "Cancel" button color
+            ),
+          ),
+        ),
+        child: child!,
+      );
+    },
+  );
     if (picked != null) {
       setState(() {
         selectedDate = picked;
@@ -149,76 +202,136 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
       return;
     }
 
+    // Load Logo
+    final ByteData bytes = await rootBundle.load('assets/images/UOP Logo.png');
+    final Uint8List logoData = bytes.buffer.asUint8List();
+    final pw.MemoryImage logoImage = pw.MemoryImage(logoData);
+    final PdfColor primaryBlue = PdfColor.fromInt(0xFFE3F2FD);
+
+    // Advanced Sort Logic: 
+    // - Primary: Status (Present first)
+    // - Secondary: Course (A-Z)
+    // - Tertiary: Name (A-Z)
+    List<Map<String, dynamic>> sortedList = List.from(studentDetails);
+    sortedList.sort((a, b) {
+      String statusA = a['status']?.toString().toLowerCase() ?? 'absent';
+      String statusB = b['status']?.toString().toLowerCase() ?? 'absent';
+
+      // Status Check: Present (smaller index) comes before Absent
+      if (statusA == 'present' && statusB != 'present') return -1;
+      if (statusA != 'present' && statusB == 'present') return 1;
+
+      // If statuses are the same, sort by Course (A-Z)
+      String courseA = a['course']?.toString().toLowerCase() ?? '';
+      String courseB = b['course']?.toString().toLowerCase() ?? '';
+      int courseComp = courseA.compareTo(courseB);
+      if (courseComp != 0) return courseComp;
+
+      // If courses are also the same, sort by Name (A-Z)
+      String nameA = a['name']?.toString().toLowerCase() ?? '';
+      String nameB = b['name']?.toString().toLowerCase() ?? '';
+      return nameA.compareTo(nameB);
+    });
+
     final pdf = pw.Document();
 
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Header
-              pw.Text("Attendance Report",
-                  style: pw.TextStyle(
-                      fontSize: 24, fontWeight: pw.FontWeight.bold)),
-              pw.Divider(),
-              pw.SizedBox(height: 20),
-
-              // Filter Details
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text("Date: $selectedRange",
-                      style: const pw.TextStyle(fontSize: 16)),
-                  pw.Text("Group: $selectedGroupId",
-                      style: const pw.TextStyle(fontSize: 16)),
-                ],
-              ),
-              pw.SizedBox(height: 30),
-
-              // Summary Boxes (Replicated layout for PDF)
-              pw.Row(
-                children: [
-                  _buildPdfSummaryCard("Total Present", totalPresent),
-                  pw.SizedBox(width: 20),
-                  _buildPdfSummaryCard("Avg. Rate", avgRate),
-                ],
-              ),
-              pw.SizedBox(height: 30),
-
-              // Example Table Data
-              pw.Text("Student Details",
-                  style: pw.TextStyle(
-                      fontSize: 18, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 10),
-              pw.TableHelper.fromTextArray(
-                headers: ['Student Name', 'Status', 'Time In'],
-                data: studentDetails.map((s) => [
-                  s['name'], 
-                  s['status'], 
-                  s['time_in'] ?? '-'
-                ]).toList(),
-                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                headerDecoration: const pw.BoxDecoration(
-                  color: PdfColors.grey300,
-                ),
-                cellAlignment: pw.Alignment.centerLeft,
-              ),
-              
-              pw.Spacer(),
-              pw.Text("Generated on ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}", 
-                style: const pw.TextStyle(color: PdfColors.grey, fontSize: 10)),
-            ],
+        margin: const pw.EdgeInsets.all(32),
+        footer: (pw.Context context) {
+          return pw.Container(
+            alignment: pw.Alignment.centerRight,
+            margin: const pw.EdgeInsets.only(top: 10),
+            child: pw.Text(
+              'Page ${context.pageNumber} of ${context.pagesCount}',
+              style: pw.TextStyle(color: PdfColors.grey, fontSize: 10),
+            ),
           );
+        },
+        build: (pw.Context context) {
+          return [
+            // Header with Logo Placeholder
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text("Attendance Report", 
+                      style: pw.TextStyle(fontSize: 26, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 4),
+                    pw.Text("Date: $selectedRange"),
+                  ]
+                ),
+                // LOGO AT TOP RIGHT
+                pw.Container(
+                  width: 120, 
+                  height: 80,
+                  child: pw.Image(logoImage),
+                ),
+              ],
+            ),
+            pw.Divider(thickness: 2),
+            pw.SizedBox(height: 20),
+
+            // Summary Cards Row
+            pw.Row(
+              children: [
+                _buildPdfSummaryCard("Today's Rate", dailyRate),
+                pw.SizedBox(width: 10),
+                _buildPdfSummaryCard("Overall Avg", avgRate),
+                pw.SizedBox(width: 10),
+                _buildPdfSummaryCard("Weekly Rate", changeRate),
+              ],
+            ),
+            pw.SizedBox(height: 30),
+
+            pw.Text("Student Details", style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+
+            // TABLE
+            pw.TableHelper.fromTextArray(
+              headers: ['Student Name', 'ID', 'Course', 'Status', 'Time In'],
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold, 
+                color: PdfColors.black,
+                fontSize: 10,
+              ),
+              headerDecoration: pw.BoxDecoration(color: primaryBlue),
+              cellAlignment: pw.Alignment.centerLeft,
+              data: sortedList.map((s) {
+                bool isPresent = s['status'].toString().toLowerCase() == 'present';
+                String rawStatus = s['status']?.toString().toLowerCase() ?? 'absent';
+                String formattedStatus = rawStatus[0].toUpperCase() + rawStatus.substring(1);
+                
+                String timeVal = s['time_in']?.toString() ?? '-';
+                String timeDisplay = (timeVal == 'null' || timeVal == 'None' || timeVal.isEmpty) 
+                    ? '-' 
+                    : timeVal;
+
+                return [
+                  s['name'] ?? '-',
+                  s['student_formal_id'] ?? '-',
+                  s['course'] ?? '-',
+                  pw.Text(
+                    formattedStatus,
+                    style: pw.TextStyle(
+                      color: isPresent ? PdfColors.black : PdfColors.red,
+                      fontWeight: isPresent ? pw.FontWeight.normal : pw.FontWeight.bold,
+                    ),
+                  ),
+                  timeDisplay,
+                ];
+              }).toList(),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+            ),
+          ];
         },
       ),
     );
 
-    // Open the Print/Share Dialog
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   // Helper widget for PDF layout
@@ -278,7 +391,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildSummaryCard("Total Present", totalPresent),
-                  _buildSummaryCard("Avg. Rate", avgRate, isRate: true),
+                  _buildSummaryCard("Daily Rate", dailyRate, isRate: true),
                 ],
               ),
 
@@ -306,7 +419,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                 value: selectedScheduleId,
                 items: backendSchedules,
                 hint: "Select Time",
-                isSchedule: true, // REMARK: Displays 'schedule' instead of 'name'
+                isSchedule: true,
                 onChanged: (val) {
                   setState(() => selectedScheduleId = val);
                   _fetchReportData();
@@ -354,69 +467,255 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
   }
 
   Widget _buildTrendContainer() {
+    bool isPositive = !changeRate.contains('-');
+    Color trendColor = isPositive ? const Color(0xFF00B38A) : const Color(0xFFEA324C);
+    double chartWidth = chartSpots.length * 60.0;
+    double minWidth = MediaQuery.of(context).size.width - 70; 
+    double finalWidth = chartWidth < minWidth ? minWidth : chartWidth;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: const Color(0x1A000000)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+        borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.02),
+          blurRadius: 10,
+          offset: const Offset(0, 5),
+        )
+      ],
+    ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Daily Rate", style: TextStyle(fontSize: 13, color: Color(0x80000000))),
-                  const SizedBox(height: 2),
-                  Text(dailyRate, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const Text("Last 7 days", style: TextStyle(fontSize: 13, color: Color(0x80000000))),
+                  const Text("Average Rate", style: TextStyle(fontSize: 13, color: Color(0x80000000))),
+                  Text(avgRate, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const Text("- / + ? % vs previous week", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  /* Text("$changeRate vs previous week", 
+                     style: const TextStyle(fontSize: 12, color: Colors.grey)),*/
+                  // const Text("Last 7 days", style: TextStyle(fontSize: 13, color: Color(0x80000000))),
                 ],
               ),
-              const Icon(Icons.trending_up, color: Color(0xFF00B38A)),
+              Row(
+                children: [
+                  Icon(isPositive ? Icons.trending_up : Icons.trending_down, color: trendColor, size: 20),
+                  const SizedBox(width: 4),
+                  Text(
+                    changeRate, // e.g. +2.0%
+                    style: TextStyle(color: trendColor, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ],
+              ),
             ],
           ),
+
           const SizedBox(height: 10),
-          SizedBox(
-            height: 160,
+
+          SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          reverse: true, // Scroll to the far right by default (displaying the most recent date)
+          child: Container(
+            width: finalWidth,
+            height: 200,
+            padding: const EdgeInsets.only(right: 20, top: 10),
             child: LineChart(
               LineChartData(
-                gridData: const FlGridData(show: false),
+                showingTooltipIndicators: touchedIndex != null
+                    ? [
+                        ShowingTooltipIndicators([
+                          LineBarSpot(
+                            LineChartBarData(spots: chartSpots),
+                            0,
+                            chartSpots[touchedIndex!],
+                          ),
+                        ])
+                      ]
+                    : [],
+                lineTouchData: LineTouchData(
+                  handleBuiltInTouches: false,
+                  getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+                    return spotIndexes.map((index) {
+                      return TouchedSpotIndicatorData(
+                        FlLine(
+                          color: const Color(0xFF1565C0).withOpacity(0.5), // Line color
+                          strokeWidth: 2,
+                          dashArray: [5, 5], // Makes the line dashed
+                        ),
+                        FlDotData(
+                          show: true,
+                          getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                            radius: 8, // Slightly larger dot when selected
+                            color: const Color(0xFF1565C0),
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          ),
+                        ),
+                      );
+                    }).toList();
+                  },
+
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: const Color(0xFF1565C0), // Bubble background (Data)
+                    tooltipRoundedRadius: 8,
+                    maxContentWidth: 180, // Bubble width
+
+                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    tooltipMargin: 10, // Increases space between the dot and the bubble
+                    
+                    fitInsideHorizontally: true,
+                    fitInsideVertically: true,
+
+                    showOnTopOfTheChartBoxArea: false,
+
+                   getTooltipItems: (List<LineBarSpot> touchedSpots) {
+                    return touchedSpots.map((barSpot) {
+                      final index = barSpot.x.toInt();
+                      final data = backendReportData['trends'][index];
+
+                      String dateStr = data['date'] ?? "";
+                      try {
+                        DateTime parsedDate = DateTime.parse(dateStr);
+                        dateStr = DateFormat('dd MMM yyyy').format(parsedDate);
+                      } catch (e) {
+                        dateStr = data['day_name'] ?? "";
+                      }
+
+                      // Multi Sessions Logic
+                      final sessions = data['sessions'] as List?;
+                      String sessionText = '';
+
+                      if (sessions != null && sessions.isNotEmpty) {
+                        for (var s in sessions) {
+                          sessionText +=
+                              '\nPresent (Session ${s['session_no']}): ${s['present']} / ${s['total']}';
+                        }
+                      } else {
+                        // Fallback (old single session data)
+                        sessionText =
+                            '\nPresent: ${data['present_count']} / ${data['total_students']}';
+                      }
+
+                      return LineTooltipItem(
+                        '$dateStr\n',
+                        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        children: [
+                          TextSpan(text: 'Attendance: ${data['rate']}%$sessionText',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.normal),
+                          ),
+                        ]
+                      );
+                        /*'Attendance: ${data['rate']}%$sessionText',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );*/
+                    }).toList();
+                  },
+
+                  ),
+                  touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                    // Respond only to taps or swipes
+                    // To preserved when the finger is lifted (Up/Exit)
+                    if (event is FlTapDownEvent || event is FlPanUpdateEvent || event is FlPointerHoverEvent) {
+                      if (touchResponse != null && touchResponse.lineBarSpots != null && touchResponse.lineBarSpots!.isNotEmpty) {
+                        final index = touchResponse.lineBarSpots!.first.spotIndex;
+                        if (index != touchedIndex) {
+                          setState(() {
+                            touchedIndex = index;
+                          });
+                        }
+                      }
+                    }
+                  },
+                ),
+
+                // Display Y-axis scale
                 titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 20, // Every 20% per scale
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return Text('${value.toInt()}%', 
+                          style: const TextStyle(color: Colors.grey, fontSize: 12));
+                      },
+                    ),
+                  ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 22,
+                      reservedSize: 30,
                       interval: 1,
                       getTitlesWidget: (value, meta) {
-                        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                         int index = value.toInt();
-                        if (index < 0 || index >= days.length) return const SizedBox.shrink();
-                    return Text(
-                      days[index],
-                      style: const TextStyle(fontSize: 12, color: Color(0x80000000)),
-                    );
-                  },
+                        if (index < 0 || index >= trendDays.length) return const SizedBox.shrink();
+                        return Text(trendDays[index], 
+                          style: const TextStyle(fontSize: 12, color: Colors.grey));
+                      },
+                    ),
+                  ),
                 ),
+
+                // Set the Y-axis range
+                minY: 0,
+                maxY: 100,
+
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 20,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.grey.withOpacity(0.15),
+                    strokeWidth: 1,
+                    dashArray: [5, 5],
+                  ),
+                ),
+
+                borderData: FlBorderData(show: false),
+
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: chartSpots,
+                    isCurved: true,
+                    color: const Color(0xFF1565C0),
+                    barWidth: 3,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                        radius: 4,
+                        color: Colors.white,
+                        strokeWidth: 3,
+                        strokeColor: const Color(0xFF1565C0),
+                      ),
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF1565C0).withOpacity(0.2),
+                          const Color(0xFF1565C0).withOpacity(0),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: chartSpots,
-                  isCurved: true,
-                  color: const Color(0xFF1565C0),
-                  barWidth: 3,
-                  belowBarData: BarAreaData(show: true, color: const Color(0xFF1565C0).withOpacity(0.1)),
-                  dotData: const FlDotData(show: true),
-                ),
-              ],
             ),
           ),
         ),
@@ -430,6 +729,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
       onTap: _pickSingleDate,
       child: Container(
         height: 48,
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           border: Border.all(color: const Color(0x1A000000)),
@@ -438,8 +738,8 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(selectedRange, style: const TextStyle(fontSize: 14)),
-            const Icon(Icons.calendar_month_rounded, color: Color(0x80000000)),
+            Text(selectedRange, style: const TextStyle(fontSize: 14, color: Colors.black)),
+            const Icon(Icons.calendar_month_rounded, color: Color(0x80000000), size: 20),
           ],
         ),
       ),
@@ -447,6 +747,12 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
   }
 
   Widget _buildGroupDropdown() {
+    if (backendGroups.isEmpty) {
+    return const Padding(
+      padding: EdgeInsets.all(8.0),
+      child: Text("Loading groups or no data found...", style: TextStyle(color: Colors.grey)),
+    );
+  }
     return _buildDropdown(
       value: selectedGroupId,
       items: backendGroups,
@@ -457,9 +763,13 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
           selectedScheduleId = null; 
           backendSchedules = [];    
           totalPresent = "----";
+          // avgRate = "--.--%";
+          dailyRate = "--%";
+          studentDetails = [];
         });
         if (newValue != null) {
           _fetchSchedules(newValue);
+          _fetchReportData();
         }
       },
     );
@@ -480,16 +790,13 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
-          // REMARK: Value MUST be the ID (int), not a String or Object
           value: value,
           isExpanded: true,
           hint: Text(hint, style: const TextStyle(color: Colors.black, fontSize: 14)),
-          // REMARK: Map the items to DropdownMenuItems using 'id' as the value
           items: items.map<DropdownMenuItem<int>>((item) {
             return DropdownMenuItem<int>(
               value: item['id'] as int,
               child: Text(
-                // REMARK: Display 'name' for Groups, 'schedule' for Time
                 isSchedule ? (item['schedule'] ?? 'No Schedule') : (item['name'] ?? 'No Name'),
                 style: const TextStyle(color: Colors.black),
               ),

@@ -10,6 +10,8 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:userinterface/changepsw.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:userinterface/services/notification_service.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -20,8 +22,8 @@ class AccountSettingsPage extends StatefulWidget {
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool attendanceReminders = true;
-  String _username = "";
-  String _email = "";
+  // String _username = "";
+  // String _email = "";
   String? _profileImageUrl;
   bool _isProfileLoading = true;
   late TextEditingController _usernameController;
@@ -34,6 +36,91 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     _usernameController = TextEditingController();
     _emailController = TextEditingController();
     _fetchProfile();
+    // Initialize Notification Service
+    NotificationService.init();
+    
+    // Load preference & automatically sync with Database
+    _loadAndSyncReminders();
+  }
+
+  Future<void> _loadAndSyncReminders() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isEnabled = prefs.getBool('reminders_enabled') ?? true;
+    
+    setState(() {
+      attendanceReminders = isEnabled;
+    });
+
+    if (isEnabled) {
+      // Once open settings send notification 
+      //await _setupAttendanceReminder();
+    }
+  }
+
+  Future<void> _toggleReminders(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('reminders_enabled', value);
+    
+    setState(() {
+      attendanceReminders = value;
+    });
+
+    if (value) {
+      await _setupAttendanceReminder();
+    } else {
+      log("Attendance reminders deactivated");
+      await NotificationService.cancelAll();
+    }
+  }
+
+  Future<void> _setupAttendanceReminder() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    log("REAL-SYNC: Fetching schedule for Lecturer ID: $userId");
+
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/lecturer/$userId/schedule'));
+
+      if (response.statusCode == 200) {
+        List classes = jsonDecode(response.body);
+        await NotificationService.cancelAll();
+        int scheduledCount = 0;
+
+        for (var cls in classes) {
+          DateTime classTime = _parseClassTime(cls['start_time']);
+          DateTime now = DateTime.now();
+
+          // Future classes (Set the Alarm)
+          if (classTime.isAfter(now)) {
+            await NotificationService.scheduleAttendanceReminder(
+              classId: cls['id'],
+              className: cls['course_name'],
+              scheduledTime: classTime,
+            );
+            scheduledCount++;
+          } 
+          // Just started classes (Notify immediately)
+          else if (now.difference(classTime).inMinutes <= 30 && now.difference(classTime).inMinutes >= 0) {
+            await NotificationService.showInstantNotification(
+              "Class Started!",
+              "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!"
+            );
+            scheduledCount++;
+          }
+        }
+        log("REAL-SYNC: Successfully synced $scheduledCount reminders.");
+      }
+    } catch (e) { log("REAL-SYNC: Failed -> $e"); }
+  }
+
+  DateTime _parseClassTime(String timeStr) {
+    final now = DateTime.now();
+    try {
+      final parts = timeStr.split(' ')[0].split(':');
+      return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+    } catch (e) { return now.subtract(const Duration(days: 1)); }
   }
 
   Future<void> _fetchProfile() async {
@@ -50,12 +137,16 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
           _usernameController.text = data['username'] ?? '';
           _emailController.text = data['email'] ?? '';
 
-          // REMARK: Update to the correct key from your Flask SELECT statement
-          if (data['profile_image_url'] != null &&
-              data['profile_image_url'].toString().isNotEmpty) {
-            _profileImageUrl = '$baseUrl/${data['profile_image_url']}';
-            // Clear the local temporary file since we now have the saved one from server
-            _selectedImage = null;
+          if (data['profile_image_url'] != null && data['profile_image_url'].toString().isNotEmpty) {
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            
+            setState(() {
+              // Append the timestamp as a query parameter
+              _profileImageUrl = '$baseUrl/${data['profile_image_url']}?v=$timestamp';
+              
+              // Clear the local temporary file
+              _selectedImage = null;
+            });
           }
           _isProfileLoading = false;
         });
@@ -292,10 +383,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     }
   }
 
-  void _setupAttendanceReminder() {
-    log("Attendance reminders activated linking to attendance.dart logic");
-  }
-
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -504,6 +591,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                           ),
                         ),
                         onPressed: () {
+                          if (!mounted) return;
+
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -567,9 +656,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                                 WidgetStateProperty.all(Colors.transparent),
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
-                            onChanged: (value) {
+                            onChanged: (value) async {
                               setState(() => attendanceReminders = value);
-                              if (value) _setupAttendanceReminder();
+                              
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('reminders_enabled', value);
+                              
+                              // Handle logic
+                              if (value) {
+                                _setupAttendanceReminder();
+                              } else {
+                                log("Attendance reminders deactivated");
+                                await NotificationService.cancelAll();
+                              }
                             },
                           ),
                         ),
@@ -578,6 +677,25 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ],
                 ),
               ),
+
+              // Test Send Reminder Alert
+              if (attendanceReminders) 
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      await NotificationService.scheduleTestNotification();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Notification scheduled for 5 seconds from now...")),
+                      );
+                    },
+                    icon: const Icon(Icons.notification_important_rounded, size: 18),
+                    label: const Text("Send Test Alert"),
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF1565C0)),
+                  ),
+                ), 
+                // End
+                
               const SizedBox(height: 15),
               SizedBox(
                 width: double.infinity,

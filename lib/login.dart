@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:userinterface/signup.dart';
+import 'package:userinterface/forgotpsw.dart';
 import 'package:userinterface/dashboard.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/sa_login.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -20,6 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> handleGoogleSignIn(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -73,15 +76,17 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> loginUser(
-      BuildContext context, String email, String password) async {
+    BuildContext context, String email, String password) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    setState(() => _isLoading = true);
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/login');
     //final url = Uri.parse('http://192.168.100.22:5001/login');
 
     // Missing email or password dialog
     if (email.isEmpty || password.isEmpty) {
+      setState(() => _isLoading = false);
       _showAnimatedDialog(
         context,
         icon: Icons.error_outline_rounded,
@@ -149,7 +154,9 @@ class _LoginPageState extends State<LoginPage> {
 
       // Successful login dialog
       else if (response.statusCode == 200) {
-        final userId = data?['user']['id']; // from Flask
+        final userId = data?['user']['id'];
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('user_id', userId); // from Flask
         Provider.of<AuthProvider>(context, listen: false).setUserId(userId);
 
         _showAnimatedDialog(
@@ -278,11 +285,26 @@ class _LoginPageState extends State<LoginPage> {
               height: 48,
               child: TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 style: const TextStyle(color: Colors.black, fontSize: 15),
-                decoration: const InputDecoration(
+                textAlignVertical: TextAlignVertical.center,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   hintText: 'Password',
                   hintStyle: TextStyle(color: Colors.grey),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
               ),
             ),
@@ -291,7 +313,12 @@ class _LoginPageState extends State<LoginPage> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ForgotPassword()),
+                  );
+                },
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(0, 0),
@@ -322,7 +349,7 @@ class _LoginPageState extends State<LoginPage> {
                 onPressed: _isLoading
                     ? null
                     : () {
-                        setState(() => _isLoading = true);
+                        // setState(() => _isLoading = true);
                         loginUser(context, _emailController.text,
                             _passwordController.text);
                       },

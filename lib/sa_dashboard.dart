@@ -71,7 +71,11 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   @override
   void initState() {
     super.initState();
+    _loadAllData();
+  }
 
+  // Consolidated data loading
+  void _loadAllData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     final userId = authProvider.userId;
@@ -82,6 +86,79 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 
     if (userId != null) {
       _fetchUserProfile(userId);
+    }
+  }
+
+  Future<void> _fetchUserProfile(int userId) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await http.get(Uri.parse('$baseUrl/sa/user/$userId'));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _username = data['username'] ?? "Unknown";
+          _email = data['email'] ?? "Unknown";
+          
+          if (data['image_url'] != null && data['image_url'].toString().isNotEmpty) {
+            String rawUrl = data['image_url'];
+            String absoluteUrl = rawUrl.startsWith('http') 
+                ? rawUrl 
+                : '$baseUrl/$rawUrl';
+            
+            _profileImageUrl = "$absoluteUrl?t=${DateTime.now().millisecondsSinceEpoch}";
+          } else {
+            _profileImageUrl = null;
+          }
+          
+          _isUserLoading = false;
+          _selectedImage = null;
+        });
+      }
+    } catch (e) {
+      log("Error fetching user profile: $e");
+      setState(() => _isUserLoading = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      File imageFile = File(pickedFile.path);
+      // We don't set _selectedImage here to avoid "flicker" 
+      // if the upload fails. We upload first.
+      await _uploadPhoto(imageFile);
+    }
+  }
+
+  Future<void> _uploadPhoto(File imageFile) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    try {
+      var request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/users/upload_photo'));
+      request.fields['user_id'] = userId.toString();
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        final resBody = await response.stream.bytesToString();
+        final data = jsonDecode(resBody);
+        
+        // Success: Clear temporary file and refresh profile from server
+        setState(() {
+          _selectedImage = null; 
+        });
+        await _fetchUserProfile(userId!);
+        
+        log("Photo uploaded and profile refreshed");
+      }
+    } catch (e) {
+      log("Upload error: $e");
     }
   }
 
@@ -120,7 +197,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     );
   }
 
-  Future<void> _pickImage() async {
+  /* Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
@@ -131,7 +208,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
       });
       await _uploadPhoto(imageFile);
     }
-  }
+  }*/
 
   void _viewPhoto() {
     if (_profileImageUrl == null && _selectedImage == null) return;
@@ -167,7 +244,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     );
   }
 
-  Future<void> _uploadPhoto(File imageFile) async {
+  /* Future<void> _uploadPhoto(File imageFile) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
     final baseUrl = dotenv.env['BASE_URL']!;
@@ -195,7 +272,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     } catch (e) {
       log("Upload error: $e");
     }
-  }
+  }*/
 
   Future<void> _fetchUserStats() async {
     try {
@@ -262,7 +339,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     }
   }
 
-  Future<void> _fetchUserProfile(int userId) async {
+  /* Future<void> _fetchUserProfile(int userId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
       final response = await http.get(Uri.parse('$baseUrl/sa/user/$userId'));
@@ -294,7 +371,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
         _profileImageUrl = null;
       });
     }
-  }
+  }*/
 
 // Profile Dialog
   Future<void> _showProfileDialog() async {
@@ -350,9 +427,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                         } else if (_profileImageUrl != null &&
                             _profileImageUrl!.isNotEmpty) {
                           avatarImage = NetworkImage(_profileImageUrl!);
-                        } else {
-                          avatarImage = null;
                         }
+                        /* } else {
+                          avatarImage = null;
+                        }*/
 
                         return GestureDetector(
                           onTap: () async {
@@ -397,7 +475,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       children: [
                         GestureDetector(
                           onTap:
-                              _showPhotoOptions, // keeps your existing function
+                              _showPhotoOptions,
                           child: const Text(
                             "Update Photo",
                             style: TextStyle(
@@ -770,6 +848,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    ImageProvider? avatarImage = (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+        ? NetworkImage(_profileImageUrl!)
+        : null;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,

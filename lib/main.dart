@@ -38,6 +38,14 @@ class SmartAttendanceApp extends StatelessWidget {
         primaryColor: const Color(0xFF1565C0),
         fontFamily: 'Inter',
         scaffoldBackgroundColor: const Color(0xFFFFFFFF),
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark, // Dark icons for light bg
+            systemNavigationBarColor: Colors.white, // Standard white nav bar
+            systemNavigationBarIconBrightness: Brightness.dark,
+          ),
+        ),
       ),
       routes: {
         '/login': (context) => const LoginPage(),

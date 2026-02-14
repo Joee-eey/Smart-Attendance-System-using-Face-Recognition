@@ -46,9 +46,28 @@ def handle_subjects():
         
         # Handle Creating a New Folder (POST)
         if request.method == 'POST':
-            data = request.get_json()
-            folder_name = data.get('name')
-            user_id = data.get('user_id')  # <-- get it from Flutter request
+            if request.is_json:
+                data = request.get_json()
+                folder_name = data.get('name')
+                user_id = data.get('user_id')
+            else:
+                folder_name = request.form.get('name')
+                user_id = request.form.get('user_id')
+
+            image_file = request.files.get('image')
+            image_url = None
+            
+            if image_file:
+                # REMARK: Ensure the local folder exists
+                if not os.path.exists('uploads'):
+                    os.makedirs('uploads')
+                
+                # REMARK: Create a unique filename
+                ext = os.path.splitext(image_file.filename)[1]
+                filename = f"subj_{user_id}_{random.randint(1000, 9999)}{ext}"
+                filepath = os.path.join('uploads', filename)
+                image_file.save(filepath)
+                image_url = f"uploads/{filename}"
 
             if not folder_name or not user_id:
                 return jsonify({'message': 'Folder name and user_id are required'}), 400
@@ -62,10 +81,10 @@ def handle_subjects():
 
             # Insert into database
             query = """
-                INSERT INTO subjects (name, code, lecturer_id, created_at) 
-                VALUES (%s, %s, %s, NOW())
+                INSERT INTO subjects (name, code, lecturer_id, image_url, created_at) 
+                VALUES (%s, %s, %s, %s, NOW())
             """
-            cursor.execute(query, (folder_name, generated_code, user_id))
+            cursor.execute(query, (folder_name, generated_code, user_id, image_url))
             conn.commit()
 
             subject_id = cursor.lastrowid
@@ -84,13 +103,27 @@ def handle_subjects():
             )
 
             return jsonify({'message': 'Folder created successfully', 'id': subject_id}), 201
+        
+        user_id = request.args.get('user_id', type=int)
+
+        if not user_id:
+            return jsonify({'message': 'user_id parameter is required'}), 400
+
+        # Filter folders by the logged-in user
+        query = "SELECT id, name, image_url, created_at FROM subjects WHERE lecturer_id = %s ORDER BY name ASC"
+        cursor.execute(query, (user_id,))
 
 
-        cursor.execute("SELECT id, name, created_at FROM subjects ORDER BY name ASC")
+        # cursor.execute("SELECT id, name, created_at FROM subjects ORDER BY name ASC")
         subjects = cursor.fetchall()
 
         for subject in subjects:
-            subject['created_at'] = subject['created_at'].strftime('%d/%m/%Y')
+            if subject['created_at']:
+                subject['created_at'] = subject['created_at'].strftime('%d/%m/%Y')
+
+            if not subject.get('image_url'):
+                subject['image_url'] = None
+
             print(f"Subject: {subject}") 
 
         return jsonify(subjects), 200
@@ -153,12 +186,17 @@ def handle_subject_files(subject_id):
 
             return jsonify({'message': 'File created successfully', 'id': class_id}), 201
 
-        cursor.execute("""
-            SELECT id, schedule, created_at 
-            FROM classes
-            WHERE subject_id = %s
-            ORDER BY schedule ASC
-        """, (subject_id,))
+        user_id = request.args.get('user_id')
+
+        # Only sees files for subjects they actually own
+        query = """
+            SELECT c.id, c.schedule, c.created_at 
+            FROM classes c
+            JOIN subjects s ON c.subject_id = s.id
+            WHERE c.subject_id = %s AND s.lecturer_id = %s
+            ORDER BY c.schedule ASC
+        """
+        cursor.execute(query, (subject_id, user_id))
         files = cursor.fetchall()
 
         for file in files:
@@ -186,16 +224,40 @@ def handle_subject_files(subject_id):
 def update_subject(subject_id):
     conn = None
     try:
-        print(f"Received UPDATE request for Subject ID: {subject_id}")  # ⭐ DEBUG PRINT
+        print(f"Received UPDATE request for Subject ID: {subject_id}")
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        
-        data = request.get_json()
-        new_name = data.get('name')
-        user_id = data.get('user_id')  # <-- pass this from Flutter app just like in createFolder
+
+        if request.is_json:
+            data = request.get_json()
+            new_name = data.get('name')
+            user_id = data.get('user_id')
+        else:
+            new_name = request.form.get('name')
+            user_id = request.form.get('user_id')
+
+        image_file = request.files.get('image')
 
         if not new_name or not user_id:
             return jsonify({'message': 'Name and user_id are required'}), 400
+        
+        image_url = None
+        if image_file:
+            if not os.path.exists('uploads'):
+                os.makedirs('uploads')
+            ext = os.path.splitext(image_file.filename)[1]
+            filename = f"subj_upd_{subject_id}_{random.randint(1000, 9999)}{ext}"
+            filepath = os.path.join('uploads', filename)
+            image_file.save(filepath)
+            image_url = f"uploads/{filename}"
+
+        # Update the database
+        if image_url:
+            # Update name AND image
+            cursor.execute("UPDATE subjects SET name = %s, image_url = %s WHERE id = %s", (new_name, image_url, subject_id))
+        else:
+            # Update name ONLY
+            cursor.execute("UPDATE subjects SET name = %s WHERE id = %s", (new_name, subject_id))
 
         # Fetch current name for logging
         cursor.execute("SELECT name FROM subjects WHERE id = %s", (subject_id,))
@@ -206,7 +268,7 @@ def update_subject(subject_id):
         old_name = old_subject['name']
 
         # Update the name in the database
-        cursor.execute("UPDATE subjects SET name = %s WHERE id = %s", (new_name, subject_id))
+        # cursor.execute("UPDATE subjects SET name = %s WHERE id = %s", (new_name, subject_id))
         conn.commit()
 
         print(f"Rows affected: {cursor.rowcount}")  # DEBUG PRINT
@@ -469,6 +531,11 @@ def bulk_enroll_students():
 def uploaded_file(filename):
     uploads_dir = os.path.join(os.getcwd(), "uploads")
     return send_from_directory(uploads_dir, filename)
+
+@dashboard_bp.route('/uploads/<path:filename>')
+def serve_uploads(filename):
+    # Ensure this points to your actual 'uploads' folder path
+    return send_from_directory('uploads', filename)
 
 @dashboard_bp.route("/students", methods=["GET"])
 def get_students():

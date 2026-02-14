@@ -161,7 +161,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  // Add this method inside _ScannerScreenState
   Future<void> _safeNavigate(String routeName) async {
     // 1. Stop the camera hardware immediately
     if (_controller != null && _controller!.value.isInitialized) {

@@ -4,8 +4,6 @@ import hashlib
 from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
-from flask import request, jsonify
-from flask_bcrypt import Bcrypt
 
 sa_dashboard_bp = Blueprint('sa_dashboard', __name__)
 load_dotenv()
@@ -28,8 +26,8 @@ def get_db_connection():
         database=db_config['database']
     )
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+#def hash_password(password):
+    #return hashlib.sha256(password.encode()).hexdigest()
 
 def insert_log(conn, user_id, action_type, target_entity, target_id=None, description=None):
     cursor = conn.cursor()
@@ -237,12 +235,14 @@ def get_student_stats():
 
 @sa_dashboard_bp.route("/sa/user/<int:user_id>", methods=["GET"])
 def get_user(user_id):
+    conn = None
+    cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT username, email
+            SELECT username, email, profile_image_url as image_url
             FROM users
             WHERE id = %s
         """, (user_id,))
@@ -257,8 +257,8 @@ def get_user(user_id):
         print("[ERROR] Fetch user failed:", e)
         return jsonify({"message": "Failed to fetch user"}), 500
     finally:
-        cursor.close()
-        conn.close()
+        if cursor: cursor.close()
+        if conn: conn.close()
 
  
 @sa_dashboard_bp.route('/sa/logout', methods=['POST'])

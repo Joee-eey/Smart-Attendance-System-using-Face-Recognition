@@ -11,6 +11,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:userinterface/providers/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:userinterface/services/notification_service.dart';
 
 class FileItem {
   int id;
@@ -54,7 +56,66 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    NotificationService.init(); // Initialize notifications
     fetchFolders();
+    _syncRemindersInBackground(); // Start auto-sync on app open
+  }
+
+  Future<void> _syncRemindersInBackground() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isEnabled = prefs.getBool('reminders_enabled') ?? true;
+
+    if (isEnabled) {
+      log("DASHBOARD: Proactive sync started...");
+      await _setupAttendanceReminder();
+    }
+  }
+
+  Future<void> _setupAttendanceReminder() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/lecturer/$userId/schedule'));
+
+      if (response.statusCode == 200) {
+        List classes = jsonDecode(response.body);
+        await NotificationService.cancelAll(); // Refresh all timers
+
+        for (var cls in classes) {
+          DateTime classTime = _parseClassTime(cls['start_time']);
+          DateTime now = DateTime.now();
+
+          if (classTime.isAfter(now)) {
+            await NotificationService.scheduleAttendanceReminder(
+              classId: cls['id'],
+              className: cls['course_name'],
+              scheduledTime: classTime,
+            );
+          } else if (now.difference(classTime).inMinutes <= 30 && now.difference(classTime).inMinutes >= 0) {
+            await NotificationService.showInstantNotification(
+              "Class Started!",
+              "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!"
+            );
+          }
+        }
+        log("DASHBOARD: Sync complete.");
+      }
+    } catch (e) {
+      log("DASHBOARD: Sync error -> $e");
+    }
+  }
+
+  DateTime _parseClassTime(String timeStr) {
+    final now = DateTime.now();
+    try {
+      final cleanTime = timeStr.split(' ')[0];
+      final parts = cleanTime.split(':');
+      return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+    } catch (e) {
+      return now.subtract(const Duration(days: 1));
+    }
   }
 
   void _filterGroups(String query) {
@@ -209,6 +270,63 @@ class _DashboardPageState extends State<DashboardPage> {
                         },
                       ),
                       const SizedBox(height: 12),
+
+                      // Select All
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () async {
+                            final isAllSelected =
+                                students.isNotEmpty &&
+                                selectedStudentIds.length == students.length;
+
+                            setDialogState(() {
+                              if (isAllSelected) {
+                                // Unselect all
+                                selectedStudentIds.clear();
+                              } else {
+                                // Select all
+                                selectedStudentIds.clear();
+                                for (var student in students) {
+                                  selectedStudentIds.add(student['id'] as int);
+                                }
+                              }
+                            });
+
+                            if (isAllSelected) {
+                              final baseUrl = dotenv.env['BASE_URL']!;
+                              for (var student in students) {
+                                try {
+                                  await http.post(
+                                    Uri.parse('$baseUrl/remove_student'),
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: jsonEncode({
+                                      'student_id': student['id'],
+                                      'subject_id': subjectId,
+                                    }),
+                                  );
+                                } catch (e) {
+                                  print("Error removing student: $e");
+                                }
+                              }
+                            }
+                          },
+                          child: Text(
+                            students.isNotEmpty &&
+                                    selectedStudentIds.length == students.length
+                                ? "Unselect All"
+                                : "Select All",
+                            style: const TextStyle(
+                              color: Color(0xFF1565C0),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
 
                       // Student list
                       Expanded(
@@ -420,7 +538,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> fetchFolders() async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/subjects');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final url = Uri.parse('$baseUrl/subjects?user_id=$userId');
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     try {
@@ -435,8 +555,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         ? dateFormat.parse(item['created_at'])
                         : DateTime.now(),
                     id: item['id'],
-                    imageUrl: item['image_url'] != null 
-                        ? "${dotenv.env['BASE_URL']}/${item['image_url']}".replaceAll('//', '/')
+                    imageUrl: item['image_url'] != null && item['image_url'].toString().isNotEmpty
+                        ? "$baseUrl/${item['image_url']}"
                         : null,
                   ))
               .toList();
@@ -456,7 +576,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> fetchFiles(Folder folder) async {
     final baseUrl = dotenv.env['BASE_URL']!;
-    final url = Uri.parse('$baseUrl/subjects/${folder.id}/files');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    final url = Uri.parse('$baseUrl/subjects/${folder.id}/files?user_id=$userId');
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     try {
@@ -560,14 +682,16 @@ class _DashboardPageState extends State<DashboardPage> {
     final userId = authProvider.userId;
 
     try {
-      final response = await http.put(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "name": name,
-          "user_id": userId,
-        }),
-      );
+      var request = http.MultipartRequest('PUT', url);
+      request.fields['name'] = name;
+      request.fields['user_id'] = userId.toString();
+
+      if (imageFile != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         log('Folder updated successfully');
@@ -621,6 +745,7 @@ class _DashboardPageState extends State<DashboardPage> {
         log('File created successfully');
         final folderIndex = folders.indexWhere((f) => f.id == folderId);
         if (folderIndex != -1) fetchFiles(folders[folderIndex]);
+        _syncRemindersInBackground();
       } else {
         log('Failed to create file: ${response.body}');
       }
@@ -669,6 +794,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (response.statusCode == 200) {
         log('File deleted successfully');
         fetchFiles(folder);
+        _syncRemindersInBackground();
       } else {
         log('Failed to delete file: ${response.body}');
       }
@@ -730,10 +856,16 @@ class _DashboardPageState extends State<DashboardPage> {
                         borderRadius: BorderRadius.circular(8),
 
                         image: _pickedFile != null 
-                                ? DecorationImage(image: FileImage(File(_pickedFile!.path)), fit: BoxFit.cover)
+                                ? DecorationImage(image: FileImage(File(_pickedFile!.path)), fit: BoxFit.cover,
+                              )
+                            : (isEdit && folder?.imageUrl != null && folder!.imageUrl!.isNotEmpty)
+                                ? DecorationImage(
+                                    image: NetworkImage(folder.imageUrl!), 
+                                    fit: BoxFit.cover,
+                                  )
                                 : null,
                       ),
-                      child: _pickedFile == null
+                      child: (_pickedFile == null && !(isEdit && folder?.imageUrl != null))
                           ? const Icon(Icons.image, size: 40, color: Colors.grey)
                           : null,
                     ),
