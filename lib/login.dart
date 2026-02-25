@@ -31,9 +31,51 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      await authProvider.signInWithGoogle();
+      final signedIn = await authProvider.signInWithGoogle();
+      final googleUser = authProvider.currentUser;
 
-      if (authProvider.isAuthenticated) {
+      if (signedIn && googleUser != null) {
+        final baseUrl = (dotenv.env['BASE_URL'] ?? '').trim();
+        if (baseUrl.isEmpty) {
+          _showAnimatedDialog(
+            context,
+            icon: Icons.error_outline_rounded,
+            iconColor: const Color(0xFFEA324C),
+            title: "Sign In Failed",
+            message: "BASE_URL is not configured.",
+            buttonText: "OK",
+            onPressed: () => Navigator.of(context).pop(),
+          );
+          return;
+        }
+
+        // Send Google user identity to Flask backend for user lookup/create.
+        final url = Uri.parse('$baseUrl/login/google');
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'email': googleUser.email,
+            'name': googleUser.displayName,
+            'provider_id': googleUser.providerId,
+          }),
+        );
+
+        Map<String, dynamic>? data;
+        try {
+          data = json.decode(response.body);
+        } catch (_) {
+          data = null;
+        }
+
+        if (response.statusCode == 200) {
+          final userId = data?['user']?['id'];
+          if (userId is int) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt('user_id', userId);
+            authProvider.setUserId(userId);
+          }
+
         _showAnimatedDialog(
           context,
           icon: Icons.check_circle_outline_rounded,
@@ -48,6 +90,17 @@ class _LoginPageState extends State<LoginPage> {
             );
           },
         );
+        } else {
+          _showAnimatedDialog(
+            context,
+            icon: Icons.error_outline_rounded,
+            iconColor: const Color(0xFFEA324C),
+            title: "Sign In Failed",
+            message: data?['message'] ?? "Google backend login failed.",
+            buttonText: "OK",
+            onPressed: () => Navigator.of(context).pop(),
+          );
+        }
       } else if (authProvider.errorMessage != null) {
         _showAnimatedDialog(
           context,
@@ -56,6 +109,16 @@ class _LoginPageState extends State<LoginPage> {
           title: "Sign In Failed",
           message: authProvider.errorMessage ??
               "Google sign-in failed. Please try again.",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      } else {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
+          title: "Sign In Cancelled",
+          message: "Google sign-in was cancelled.",
           buttonText: "OK",
           onPressed: () => Navigator.of(context).pop(),
         );

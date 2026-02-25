@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class GoogleUser {
   final String displayName;
   final String email;
+  final String providerId;
   final String? photoUrl;
   final String? idToken;
   final String? accessToken;
@@ -11,6 +12,7 @@ class GoogleUser {
   GoogleUser({
     required this.displayName,
     required this.email,
+    required this.providerId,
     this.photoUrl,
     this.idToken,
     this.accessToken,
@@ -49,6 +51,7 @@ Future<GoogleUser?> signInWithGoogle({bool forceAccountChooser = false}) async {
     return GoogleUser(
       displayName: account.displayName ?? '',
       email: account.email,
+      providerId: account.id,
       photoUrl: account.photoUrl,
       idToken: authentication.idToken,
       accessToken: authentication.accessToken,

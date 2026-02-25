@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS users (
     auth_provider ENUM('email', 'google', 'microsoft') NOT NULL DEFAULT 'email',
     profile_image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    provider_id VARCHAR(255) NULL
 );
 """)
 
