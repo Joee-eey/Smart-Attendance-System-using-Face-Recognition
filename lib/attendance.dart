@@ -22,8 +22,8 @@ class _AttendanceState extends State<Attendance> {
   List<Map<String, dynamic>> attendanceList = [];
   bool isLoading = true;
 
-  List<String> selectedFilters = ["All"]; 
-  String sortOrder = "A-Z"; 
+  List<String> selectedFilters = ["All"];
+  String sortOrder = "A-Z";
 
   final GlobalKey _filterKey = GlobalKey();
   final TextEditingController _searchController = TextEditingController();
@@ -48,7 +48,8 @@ class _AttendanceState extends State<Attendance> {
     log("Reminder: No attendance records found for Class ID: $classId");
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("Reminder: Attendance has not been taken for this class yet."),
+        content: const Text(
+            "Reminder: Attendance has not been taken for this class yet."),
         backgroundColor: const Color(0xFF1565C0),
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
@@ -57,7 +58,8 @@ class _AttendanceState extends State<Attendance> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => ScanAttendance(classId: classId)),
+              MaterialPageRoute(
+                  builder: (context) => ScanAttendance(classId: classId)),
             );
           },
         ),
@@ -66,7 +68,8 @@ class _AttendanceState extends State<Attendance> {
   }
 
   void _showFilterPopup() {
-    final RenderBox renderBox = _filterKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox renderBox =
+        _filterKey.currentContext!.findRenderObject() as RenderBox;
     final Offset offset = renderBox.localToGlobal(Offset.zero);
 
     showMenu(
@@ -110,7 +113,6 @@ class _AttendanceState extends State<Attendance> {
                         ),
                       ),
                       const Divider(color: Colors.white, thickness: 1),
-
                       ...["All", ...subFilters].map((item) {
                         bool checked = selectedFilters.contains(item);
                         return _buildSelectionRow(
@@ -132,20 +134,18 @@ class _AttendanceState extends State<Attendance> {
                                   selectedFilters.remove("All");
                                 } else {
                                   selectedFilters.add(item);
-                                  if (subFilters.every(
-                                      (element) => selectedFilters.contains(element))) {
+                                  if (subFilters.every((element) =>
+                                      selectedFilters.contains(element))) {
                                     selectedFilters.add("All");
                                   }
                                 }
                               }
-                              _applySortFilter(); 
+                              _applySortFilter();
                             });
                           },
                         );
                       }).toList(),
-
                       const Divider(color: Colors.white, thickness: 1),
-
                       _buildSelectionRow(
                         label: "A-Z",
                         icon: sortOrder == "A-Z"
@@ -208,24 +208,28 @@ class _AttendanceState extends State<Attendance> {
       if (query.isNotEmpty) {
         filtered = filtered.where((item) {
           return item['name'].toString().toLowerCase().contains(query) ||
-                item['student_card_id'].toString().toLowerCase().contains(query);
+              item['student_card_id'].toString().toLowerCase().contains(query);
         }).toList();
       }
 
       if (!selectedFilters.contains("All")) {
-      filtered = filtered.where((item) {
-        String status = item['status'].toString().toLowerCase();
-        bool matchesPresent = selectedFilters.contains("Present") && status == 'present';
-        bool matchesAbsent = selectedFilters.contains("Absent") && status == 'absent';
-        
-        return matchesPresent || matchesAbsent;
-      }).toList();
-    }
+        filtered = filtered.where((item) {
+          String status = item['status'].toString().toLowerCase();
+          bool matchesPresent =
+              selectedFilters.contains("Present") && status == 'present';
+          bool matchesAbsent =
+              selectedFilters.contains("Absent") && status == 'absent';
+
+          return matchesPresent || matchesAbsent;
+        }).toList();
+      }
 
       filtered.sort((a, b) {
         final nameA = a['name'].toString().toLowerCase();
         final nameB = b['name'].toString().toLowerCase();
-        return sortOrder == "A-Z" ? nameA.compareTo(nameB) : nameB.compareTo(nameA);
+        return sortOrder == "A-Z"
+            ? nameA.compareTo(nameB)
+            : nameB.compareTo(nameA);
       });
 
       attendanceList = filtered;
@@ -233,112 +237,117 @@ class _AttendanceState extends State<Attendance> {
   }
 
   void _showManualAttendanceDialog(int studentId, String name) {
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration( // Added const here
-                color: Color(0xFFE3F2FD),
-                shape: BoxShape.circle,
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  // Added const here
+                  color: Color(0xFFE3F2FD),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  // Removed const here
+                  Icons.how_to_reg_rounded,
+                  color: const Color(0xFF1565C0),
+                  size: 40,
+                ),
               ),
-              child: Icon( // Removed const here
-                Icons.how_to_reg_rounded,
-                color: const Color(0xFF1565C0),
-                size: 40,
+              const SizedBox(height: 20),
+              const Text(
+                "Manual Attendance",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Manual Attendance",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+              const SizedBox(height: 12),
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: const TextStyle(
+                      color: Colors.grey, fontSize: 15, height: 1.5),
+                  children: [
+                    const TextSpan(text: "Are you sure you want to mark\n"),
+                    TextSpan(
+                      text: name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const TextSpan(text: " as "),
+                    const TextSpan(
+                      text: "Present",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00B38A),
+                      ),
+                    ),
+                    const TextSpan(text: "?"),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                style: const TextStyle(color: Colors.grey, fontSize: 15, height: 1.5),
+              const SizedBox(height: 32),
+              Row(
                 children: [
-                  const TextSpan(text: "Are you sure you want to mark\n"),
-                  TextSpan(
-                    text: name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Color(0xFFE0E0E0)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        "Cancel",
+                        style: TextStyle(
+                            color: Colors.grey, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                  const TextSpan(text: " as "),
-                  const TextSpan(
-                    text: "Present",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF00B38A),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        markAsPresentManual(studentId);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1565C0),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        "Confirm",
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                  const TextSpan(text: "?"),
                 ],
               ),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFFE0E0E0)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      "Cancel",
-                      style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      markAsPresentManual(studentId);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1565C0),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      "Confirm",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> fetchAttendance(int classId) async {
     try {
@@ -350,7 +359,8 @@ class _AttendanceState extends State<Attendance> {
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         setState(() {
-          final List mappedData = data.map((e) => {
+          final List mappedData = data
+              .map((e) => {
                     'id': e['id'],
                     'student_id': e['student_id'],
                     'name': e['name'] ?? 'Unknown',
@@ -367,10 +377,9 @@ class _AttendanceState extends State<Attendance> {
           isLoading = false;
           _applySortFilter();
         });
-      if (attendanceList.isEmpty) {
+        if (attendanceList.isEmpty) {
           _notifyLecturer(classId);
         }
-
       } else {
         throw Exception('Failed to load data');
       }
@@ -382,55 +391,85 @@ class _AttendanceState extends State<Attendance> {
     }
   }
 
-Future<void> markAsPresentManual(int studentId) async {
-  try {
-    final baseUrl = dotenv.env['BASE_URL']!;
-    final response = await http.post(
-      Uri.parse('$baseUrl/attendance/manual'),
-      body: jsonEncode({
-        'class_id': widget.classId,
-        'student_id': studentId,
-        'status': 'Present',
-      }),
-      headers: {"Content-Type": "application/json"},
-    );
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Student marked as Present")),
-      );
-      fetchAttendance(widget.classId);
-      fetchSummary(widget.classId);
-    }
-  } catch (e) {
-    log("Error marking manual attendance: $e");
-  }
-}
-
-  Future<void> deleteAttendance(int id) async {
+  Future<void> markAsPresentManual(int studentId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
-      final url = Uri.parse('$baseUrl/attendance/$id'); 
-      log("Attempting to delete ID: $id at $url"); 
-      final response = await http.delete(url);
-      
+      final response = await http.post(
+        Uri.parse('$baseUrl/attendance/manual'),
+        body: jsonEncode({
+          'class_id': widget.classId,
+          'student_id': studentId,
+          'status': 'Present',
+        }),
+        headers: {"Content-Type": "application/json"},
+      );
+
       if (response.statusCode == 200) {
-        log('Record deleted successfully from DB');
-        setState(() {
-          attendanceList.removeWhere((item) => item['id'] == id);
-        });
-        fetchSummary(widget.classId);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Record deleted successfully")),
+          SnackBar(
+            content: const Text("Student marked as Present"),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
-      } else {
-        log('Failed to delete record: ${response.body}');
+        fetchAttendance(widget.classId);
+        fetchSummary(widget.classId);
+      }
+    } catch (e) {
+      log("Error marking manual attendance: $e");
+    }
+  }
+
+  // Future<void> deleteAttendance(int id) async {
+  //   try {
+  //     final baseUrl = dotenv.env['BASE_URL']!;
+  //     final url = Uri.parse('$baseUrl/attendance/$id');
+  //     log("Attempting to delete ID: $id at $url");
+  //     final response = await http.delete(url);
+
+  //     if (response.statusCode == 200) {
+  //       log('Record deleted successfully from DB');
+  //       setState(() {
+  //         attendanceList.removeWhere((item) => item['id'] == id);
+  //       });
+  //       fetchSummary(widget.classId);
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text("Record deleted successfully")),
+  //       );
+  //     } else {
+  //       log('Failed to delete record: ${response.body}');
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text("Failed to delete record")),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     log('Error deleting attendance', error: e);
+  //   }
+  // }
+
+  Future<void> deleteEnrollment(int studentId) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final url =
+          Uri.parse('$baseUrl/enrollments/$studentId/${widget.classId}');
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to delete record")),
+          const SnackBar(
+            content: Text("Student removed from class"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Refresh the attendance list since the student is no longer enrolled
+        fetchAttendance(widget.classId);
+        fetchSummary(widget.classId);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to remove student: ${response.body}")),
         );
       }
     } catch (e) {
-      log('Error deleting attendance', error: e);
+      log("Error deleting enrollment: $e");
     }
   }
 
@@ -440,7 +479,8 @@ Future<void> markAsPresentManual(int studentId) async {
   Future<void> fetchSummary(int classId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
-      final response = await http.get(Uri.parse('$baseUrl/attendance/summary?class_id=$classId'));
+      final response = await http
+          .get(Uri.parse('$baseUrl/attendance/summary?class_id=$classId'));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -489,243 +529,568 @@ Future<void> markAsPresentManual(int studentId) async {
         ),
       ),
       body: isLoading
-    ? const Center(child: CircularProgressIndicator())
-    : Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              onChanged: (value) => _applySortFilter(),
-              style: const TextStyle(
-                color: Color(0xFF000000),
-              ),
-              decoration: InputDecoration(
-                hintText: "Search",
-                hintStyle: const TextStyle(
-                  color: Color(0xFF9E9E9E),
-                ),
-                suffixIcon:
-                    const Icon(Icons.search, color: Color(0x4D000000)),
-                contentPadding:
-                    const EdgeInsets.only(left: 10, top: 12, bottom: 12),
-                filled: true,
-                fillColor: const Color(0xFFF6F6F6),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Color(0x1A000000),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: Color(0xFFF6F6F6),
-                    width: 1,
-                  ),
-                ),
-              ),
-              cursorColor: Colors.black,
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Summary
-            const Text(
-              "Today's Summary",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 70,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$presentCount',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        const Text('Present',
-                            style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Container(
-                    height: 70,
-                    margin: const EdgeInsets.only(left: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          spreadRadius: 1,
-                          blurRadius: 3,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$absentCount',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const Text('Absent',
-                            style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Recent Scans Label
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Recent Scans",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  key: _filterKey,
-                  icon: const Icon(
-                    Icons.filter_alt_rounded,
-                    color: Color(0xFF1565C0),
-                  ),
-                  onPressed: () {
-                    _showFilterPopup();
-                  },
-                ),
-              ],
-            ),
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
 
-            
-            // Scrollable Recent Scans List
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 43), 
-                itemCount: attendanceList.length,
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemBuilder: (context, index) {
-                  final record = attendanceList[index];
-                  return Dismissible(
-                    key: Key(record['id'].toString() + record['status']),
-                    background: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF84F31),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      height: 60,
-                      child: const Icon(Icons.delete, color: Colors.white, size: 24),
+                  // Search Bar
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) => _applySortFilter(),
+                    style: const TextStyle(
+                      color: Color(0xFF000000),
                     ),
-                    direction: DismissDirection.endToStart,
-                    confirmDismiss: (direction) async {
-                      if (direction == DismissDirection.endToStart) {
-                        bool confirmed = await showDialog(
-                          context: context,
-                          builder: (_) => Dialog(
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                            insetPadding: const EdgeInsets.all(24),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.delete_forever_rounded,
-                                      color: Color(0xFFF84F31), size: 48),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    "Are you sure?",
-                                    style: TextStyle(
-                                        fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    "Do you really want to delete this record?\nThis process cannot be undone.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                          style: OutlinedButton.styleFrom(
-                                            backgroundColor: const Color(0xFFF6F6F6),
-                                            side: const BorderSide(color: Color(0xFFF6F6F6)),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                    decoration: InputDecoration(
+                      hintText: "Search",
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF9E9E9E),
+                      ),
+                      suffixIcon:
+                          const Icon(Icons.search, color: Color(0x4D000000)),
+                      contentPadding:
+                          const EdgeInsets.only(left: 10, top: 12, bottom: 12),
+                      filled: true,
+                      fillColor: const Color(0xFFF6F6F6),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Color(0x1A000000),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFF6F6F6),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    cursorColor: Colors.black,
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Summary
+                  const Text(
+                    "Today's Summary",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 70,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.2),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$presentCount',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              const Text('Present',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 70,
+                          margin: const EdgeInsets.only(left: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.2),
+                                spreadRadius: 1,
+                                blurRadius: 3,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$absentCount',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const Text('Absent',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Recent Scans Label
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Recent Scans",
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        key: _filterKey,
+                        icon: const Icon(
+                          Icons.filter_alt_rounded,
+                          color: Color(0xFF1565C0),
+                        ),
+                        onPressed: () {
+                          _showFilterPopup();
+                        },
+                      ),
+                    ],
+                  ),
+
+                  // Scrollable Recent Scans List
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 43),
+                      itemCount: attendanceList.length,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemBuilder: (context, index) {
+                        final record = attendanceList[index];
+                        return Dismissible(
+                          key: Key(record['id'].toString() + record['status']),
+                          background: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF84F31),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            height: 60,
+                            child: const Icon(Icons.delete,
+                                color: Colors.white, size: 24),
+                          ),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (direction) async {
+                            if (direction == DismissDirection.endToStart) {
+                              bool confirmed = await showDialog(
+                                context: context,
+                                builder: (_) => Dialog(
+                                  backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8)),
+                                  insetPadding: const EdgeInsets.all(24),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.delete_forever_rounded,
+                                            color: Color(0xFFF84F31), size: 48),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          "Are you sure?",
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          "Do you really want to delete this record?\nThis process cannot be undone.",
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton(
+                                                onPressed: () => Navigator.pop(
+                                                    context, false),
+                                                style: OutlinedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFFF6F6F6),
+                                                  side: const BorderSide(
+                                                      color: Color(0xFFF6F6F6)),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  "Cancel",
+                                                  style: TextStyle(
+                                                      color: Colors.grey,
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          child: const Text(
-                                            "Cancel",
-                                            style: TextStyle(
-                                                color: Colors.grey,
-                                                fontWeight: FontWeight.w600),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFFF84F31),
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8)),
+                                                ),
+                                                onPressed: () => Navigator.pop(
+                                                    context, true),
+                                                child: const Text(
+                                                  "Delete",
+                                                  style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+
+                              // if (confirmed == true && record['id'] != null) {
+                              //   setState(() {
+                              //     attendanceList.removeAt(index);
+                              //   });
+                              //   await deleteAttendance(record['id']);
+                              // }
+                              if (confirmed == true &&
+                                  record['student_id'] != null) {
+                                await deleteEnrollment(record['student_id']);
+                              }
+                              return false;
+                            }
+                            return false;
+                          },
+                          child: GestureDetector(
+                            onLongPress: () {
+                              if (record['status'].toString().toLowerCase() ==
+                                  'absent') {
+                                _showManualAttendanceDialog(
+                                    record['student_id'], record['name']);
+                              }
+                            },
+                            child: Container(
+                              height: 78,
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7F8FA),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // const Icon(Icons.account_circle_rounded,
+                                  //     size: 50, color: Color(0xFF9E9E9E)),
+                                  CircleAvatar(
+                                    radius: 25, // same size as before
+                                    backgroundColor: const Color(0xFF9E9E9E),
+                                    backgroundImage:
+                                        (record['face_image_url'] != null &&
+                                                record['face_image_url']
+                                                    .toString()
+                                                    .isNotEmpty)
+                                            ? NetworkImage(
+                                                record['face_image_url']
+                                                    .toString())
+                                            : null,
+                                    child: (record['face_image_url'] == null ||
+                                            record['face_image_url']
+                                                .toString()
+                                                .isEmpty)
+                                        ? const Icon(
+                                            Icons.account_circle_rounded,
+                                            color: Colors.white,
+                                            size: 30)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          record['name'],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15,
                                           ),
                                         ),
+                                        Text(
+                                          record['student_card_id']
+                                                  ?.toString() ??
+                                              '--',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w300,
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        Text(
+                                          record['course']?.toString() ?? '--',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w300,
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                        Text(
+                                          record['time'],
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0XCC000000),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        (record['status'] != null)
+                                            ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
+                                            : 'Unknown',
+                                        style: TextStyle(
+                                          color: (record['status']
+                                                      ?.toString()
+                                                      .toLowerCase() ==
+                                                  'present')
+                                              ? const Color(0xFF00B38A)
+                                              : const Color(0xFFEA324C),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFFF84F31),
-                                            shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          onPressed: () => Navigator.pop(context, true),
-                                          child: const Text(
-                                            "Delete",
-                                            style: TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600),
-                                          ),
+
+                                      // Vertical divider
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(
+                                            horizontal: 8),
+                                        height: 20,
+                                        width: 1,
+                                        color: const Color(0x1A000000),
+                                      ),
+
+                                      // Delete icon
+                                      GestureDetector(
+                                        onTap: () async {
+                                          bool confirmed = await showDialog(
+                                            context: context,
+                                            builder: (context) => Dialog(
+                                              backgroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          12)),
+                                              insetPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 40),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(24),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    // Red Trash Icon Header
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              16),
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                        color: Color(
+                                                            0xFFFFEBEE), // Very light red background
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons
+                                                            .delete_forever_rounded,
+                                                        color: Color(
+                                                            0xFFF84F31), // Your specific red color
+                                                        size: 40,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 20),
+
+                                                    // Title
+                                                    const Text(
+                                                      "Are you sure?",
+                                                      style: TextStyle(
+                                                        fontSize: 20,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.black87,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 12),
+
+                                                    // Warning Text
+                                                    const Text(
+                                                      "Do you really want to delete this record?\nThis process cannot be undone.",
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: TextStyle(
+                                                        color: Colors.grey,
+                                                        fontSize: 15,
+                                                        height: 1.5,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 32),
+
+                                                    // Action Buttons
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: OutlinedButton(
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    context,
+                                                                    false),
+                                                            style:
+                                                                OutlinedButton
+                                                                    .styleFrom(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      vertical:
+                                                                          12),
+                                                              backgroundColor:
+                                                                  const Color(
+                                                                      0xFFF6F6F6),
+                                                              side: const BorderSide(
+                                                                  color: Color(
+                                                                      0xFFF6F6F6)),
+                                                              shape:
+                                                                  RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                              ),
+                                                            ),
+                                                            child: const Text(
+                                                              "Cancel",
+                                                              style: TextStyle(
+                                                                color:
+                                                                    Colors.grey,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 12),
+                                                        Expanded(
+                                                          child: ElevatedButton(
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    context,
+                                                                    true),
+                                                            style:
+                                                                ElevatedButton
+                                                                    .styleFrom(
+                                                              backgroundColor:
+                                                                  const Color(
+                                                                      0xFFF84F31), // Red action
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      vertical:
+                                                                          12),
+                                                              elevation: 0,
+                                                              shape:
+                                                                  RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                              ),
+                                                            ),
+                                                            child: const Text(
+                                                              "Delete",
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+
+                                          // if (confirmed == true &&
+                                          //     record['id'] != null) {
+                                          //   await deleteAttendance(
+                                          //       record['id']);
+                                          // }
+
+                                          if (confirmed == true &&
+                                              record['student_id'] != null) {
+                                            await deleteEnrollment(
+                                                record['student_id']);
+                                          }
+                                        },
+                                        child: const Icon(
+                                          Icons.delete_outline_rounded,
+                                          size: 20,
+                                          color: Color(0xFFF84F31),
                                         ),
                                       ),
                                     ],
@@ -735,240 +1100,12 @@ Future<void> markAsPresentManual(int studentId) async {
                             ),
                           ),
                         );
-
-                        if (confirmed == true && record['id'] != null) {
-                          setState(() {
-                            attendanceList.removeAt(index);
-                          });
-                          await deleteAttendance(record['id']);
-                        }
-                        return false;
-                      }
-                      return false;
-                    },
-
-                    child: GestureDetector(
-                      onLongPress: () {
-                        if (record['status'].toString().toLowerCase() == 'absent') {
-                          _showManualAttendanceDialog(record['student_id'], record['name']);
-                        }
                       },
-
-                    child: Container(
-                      height: 78,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F8FA),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // const Icon(Icons.account_circle_rounded,
-                          //     size: 50, color: Color(0xFF9E9E9E)),
-                          CircleAvatar(
-                            radius: 25, // same size as before
-                            backgroundColor: const Color(0xFF9E9E9E),
-                            backgroundImage: (record['face_image_url'] != null &&
-                                    record['face_image_url'].toString().isNotEmpty)
-                                ? NetworkImage(record['face_image_url'].toString())
-                                : null,
-                            child: (record['face_image_url'] == null ||
-                                    record['face_image_url'].toString().isEmpty)
-                                ? const Icon(Icons.account_circle_rounded, color: Colors.white, size: 30)
-                                : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  record['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                Text(
-                                  record['student_card_id']?.toString() ?? '--',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w300,
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                Text(
-                                  record['course']?.toString() ?? '--',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w300,
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                Text(
-                                  record['time'],
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0XCC000000),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Text(
-                                (record['status'] != null)
-                                    ? '${record['status'][0].toUpperCase()}${record['status'].substring(1).toLowerCase()}'
-                                    : 'Unknown',
-                                style: TextStyle(
-                                  color: (record['status']?.toString().toLowerCase() == 'present')
-                                      ? const Color(0xFF00B38A)
-                                      : const Color(0xFFEA324C),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-
-                              // Vertical divider
-                              Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 8),
-                                height: 20,
-                                width: 1,
-                                color: const Color(0x1A000000),
-                              ),
-
-                              // Delete icon
-                              GestureDetector(
-                                onTap: () async {
-                                  bool confirmed = await showDialog(
-                                    context: context,
-                                    builder: (context) => Dialog(
-                                      backgroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            // Red Trash Icon Header
-                                            Container(
-                                              padding: const EdgeInsets.all(16),
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFFFFEBEE), // Very light red background
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.delete_forever_rounded,
-                                                color: Color(0xFFF84F31), // Your specific red color
-                                                size: 40,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 20),
-                                            
-                                            // Title
-                                            const Text(
-                                              "Are you sure?",
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black87,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            
-                                            // Warning Text
-                                            const Text(
-                                              "Do you really want to delete this record?\nThis process cannot be undone.",
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 15,
-                                                height: 1.5,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 32),
-                                            
-                                            // Action Buttons
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: OutlinedButton(
-                                                    onPressed: () => Navigator.pop(context, false),
-                                                    style: OutlinedButton.styleFrom(
-                                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                                      backgroundColor: const Color(0xFFF6F6F6),
-                                                      side: const BorderSide(color: Color(0xFFF6F6F6)),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                    ),
-                                                    child: const Text(
-                                                      "Cancel",
-                                                      style: TextStyle(
-                                                        color: Colors.grey,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: ElevatedButton(
-                                                    onPressed: () => Navigator.pop(context, true),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: const Color(0xFFF84F31), // Red action
-                                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                                      elevation: 0,
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                    ),
-                                                    child: const Text(
-                                                      "Delete",
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-
-                                  if (confirmed == true && record['id'] != null) {
-                                    await deleteAttendance(record['id']);
-                                  }
-                                },
-                                child: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 20,
-                                  color: Color(0xFFF84F31),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
                     ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 70),
@@ -1020,19 +1157,17 @@ Future<void> markAsPresentManual(int studentId) async {
         unselectedFontSize: 12,
         selectedIconTheme: const IconThemeData(size: 24),
         unselectedIconTheme: const IconThemeData(size: 24),
-
-          onTap: (index) {
-            if (index == 0) {
-              Navigator.pushNamed(context, '/dashboard');
-            } else if (index == 1) {
-              Navigator.pushNamed(context, '/enroll'); 
-            } else if (index == 2) {
-              Navigator.pushNamed(context, '/reports');
-            } else if (index == 3) {
-              Navigator.pushNamed(context, '/settings');
-            }
-          },
-
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushNamed(context, '/dashboard');
+          } else if (index == 1) {
+            Navigator.pushNamed(context, '/enroll');
+          } else if (index == 2) {
+            Navigator.pushNamed(context, '/reports');
+          } else if (index == 3) {
+            Navigator.pushNamed(context, '/settings');
+          }
+        },
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.space_dashboard_rounded), label: 'Dashboard'),

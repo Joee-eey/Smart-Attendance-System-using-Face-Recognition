@@ -200,3 +200,39 @@ def delete_attendance(attendance_id):
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
+
+
+@attendance_bp.route('/enrollments/<int:student_id>/<int:class_id>', methods=['DELETE'])
+def delete_enrollment(student_id, class_id):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT subject_id FROM classes WHERE id = %s", (class_id,))
+        class_row = cursor.fetchone()
+        if not class_row:
+            return jsonify({'message': 'Class not found'}), 404
+        subject_id = class_row[0]
+
+        cursor.execute("""
+            DELETE FROM enrollments
+            WHERE student_id = %s AND subject_id = %s
+        """, (student_id, subject_id))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({'message': 'Enrollment not found'}), 404
+
+        return jsonify({'message': 'Student removed from class successfully'}), 200
+
+    except Exception as e:
+        print(f"Error deleting enrollment: {e}", flush=True)
+        if conn:
+            conn.rollback()
+        return jsonify({'message': str(e)}), 500
+
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()

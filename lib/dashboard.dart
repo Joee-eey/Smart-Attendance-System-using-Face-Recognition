@@ -77,7 +77,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final baseUrl = dotenv.env['BASE_URL']!;
 
     try {
-      final response = await http.get(Uri.parse('$baseUrl/lecturer/$userId/schedule'));
+      final response =
+          await http.get(Uri.parse('$baseUrl/lecturer/$userId/schedule'));
 
       if (response.statusCode == 200) {
         List classes = jsonDecode(response.body);
@@ -93,11 +94,10 @@ class _DashboardPageState extends State<DashboardPage> {
               className: cls['course_name'],
               scheduledTime: classTime,
             );
-          } else if (now.difference(classTime).inMinutes <= 30 && now.difference(classTime).inMinutes >= 0) {
-            await NotificationService.showInstantNotification(
-              "Class Started!",
-              "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!"
-            );
+          } else if (now.difference(classTime).inMinutes <= 30 &&
+              now.difference(classTime).inMinutes >= 0) {
+            await NotificationService.showInstantNotification("Class Started!",
+                "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!");
           }
         }
         log("DASHBOARD: Sync complete.");
@@ -112,24 +112,25 @@ class _DashboardPageState extends State<DashboardPage> {
     try {
       final cleanTime = timeStr.split(' ')[0];
       final parts = cleanTime.split(':');
-      return DateTime(now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
+      return DateTime(now.year, now.month, now.day, int.parse(parts[0]),
+          int.parse(parts[1]));
     } catch (e) {
       return now.subtract(const Duration(days: 1));
     }
   }
 
   void _filterGroups(String query) {
-  setState(() {
-    if (query.isEmpty) {
-      filteredFolders = folders;
-    } else {
-      filteredFolders = folders
-          .where((folder) =>
-              folder.name.toLowerCase().contains(query.toLowerCase()))
-          .toList();
-    }
-  });
-}
+    setState(() {
+      if (query.isEmpty) {
+        filteredFolders = folders;
+      } else {
+        filteredFolders = folders
+            .where((folder) =>
+                folder.name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
 
   Future<void> _confirmEnrollStudents({
     required List<int> studentIds,
@@ -276,8 +277,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         alignment: Alignment.centerRight,
                         child: GestureDetector(
                           onTap: () async {
-                            final isAllSelected =
-                                students.isNotEmpty &&
+                            final isAllSelected = students.isNotEmpty &&
                                 selectedStudentIds.length == students.length;
 
                             setDialogState(() {
@@ -512,8 +512,10 @@ class _DashboardPageState extends State<DashboardPage> {
                                     // ignore: use_build_context_synchronously
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                          content: Text(
-                                              "Students enrolled successfully")),
+                                        content: Text(
+                                            "Students enrolled successfully"),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
                                     );
                                   }
                                 },
@@ -555,12 +557,13 @@ class _DashboardPageState extends State<DashboardPage> {
                         ? dateFormat.parse(item['created_at'])
                         : DateTime.now(),
                     id: item['id'],
-                    imageUrl: item['image_url'] != null && item['image_url'].toString().isNotEmpty
+                    imageUrl: item['image_url'] != null &&
+                            item['image_url'].toString().isNotEmpty
                         ? "$baseUrl/${item['image_url']}"
                         : null,
                   ))
               .toList();
-              filteredFolders = folders;
+          filteredFolders = folders;
           isLoading = false;
         });
         log('Successfully fetched subjects: ${folders.length} items');
@@ -578,7 +581,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final baseUrl = dotenv.env['BASE_URL']!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
-    final url = Uri.parse('$baseUrl/subjects/${folder.id}/files?user_id=$userId');
+    final url =
+        Uri.parse('$baseUrl/subjects/${folder.id}/files?user_id=$userId');
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     try {
@@ -658,12 +662,13 @@ class _DashboardPageState extends State<DashboardPage> {
       request.fields['user_id'] = userId.toString();
 
       if (imageFile != null) {
-        request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+        request.files
+            .add(await http.MultipartFile.fromPath('image', imageFile.path));
       }
 
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-      
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         log('Folder created successfully');
         fetchFolders();
@@ -687,7 +692,8 @@ class _DashboardPageState extends State<DashboardPage> {
       request.fields['user_id'] = userId.toString();
 
       if (imageFile != null) {
-        request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+        request.files
+            .add(await http.MultipartFile.fromPath('image', imageFile.path));
       }
 
       var streamedResponse = await request.send();
@@ -811,125 +817,136 @@ class _DashboardPageState extends State<DashboardPage> {
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder( // Added StatefulBuilder to update image preview inside dialog
+        return StatefulBuilder(
+          // Added StatefulBuilder to update image preview inside dialog
           builder: (context, setDialogState) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          insetPadding: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              insetPadding: const EdgeInsets.all(24),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      isEdit ? "Edit Group" : "New Group",
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0x80000000),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.close_rounded,
-                          color: Colors.black54, size: 20),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Container(height: 1, color: const Color(0xFFF6F6F6)),
-                const SizedBox(height: 15),
-                GestureDetector(
-                  onTap: () => _pickImage(setDialogState), // Trigger picker
-                  child: Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F8FA),
-                        borderRadius: BorderRadius.circular(8),
-
-                        image: _pickedFile != null 
-                                ? DecorationImage(image: FileImage(File(_pickedFile!.path)), fit: BoxFit.cover,
-                              )
-                            : (isEdit && folder?.imageUrl != null && folder!.imageUrl!.isNotEmpty)
-                                ? DecorationImage(
-                                    image: NetworkImage(folder.imageUrl!), 
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                      ),
-                      child: (_pickedFile == null && !(isEdit && folder?.imageUrl != null))
-                          ? const Icon(Icons.image, size: 40, color: Colors.grey)
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _pickedFile != null ? "Change Picture" : "Upload Picture",
+                          isEdit ? "Edit Group" : "New Group",
                           style: const TextStyle(
-                              color: Color(0xFF1565C0),
-                              fontWeight: FontWeight.w600),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0x80000000),
+                          ),
                         ),
-                        const Text(
-                          "JPG or PNG, max 5MB",
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.black54, size: 20),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(height: 1, color: const Color(0xFFF6F6F6)),
+                    const SizedBox(height: 15),
+                    GestureDetector(
+                      onTap: () => _pickImage(setDialogState), // Trigger picker
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7F8FA),
+                              borderRadius: BorderRadius.circular(8),
+                              image: _pickedFile != null
+                                  ? DecorationImage(
+                                      image: FileImage(File(_pickedFile!.path)),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : (isEdit &&
+                                          folder?.imageUrl != null &&
+                                          folder!.imageUrl!.isNotEmpty)
+                                      ? DecorationImage(
+                                          image: NetworkImage(folder.imageUrl!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                            ),
+                            child: (_pickedFile == null &&
+                                    !(isEdit && folder?.imageUrl != null))
+                                ? const Icon(Icons.image,
+                                    size: 40, color: Colors.grey)
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _pickedFile != null
+                                    ? "Change Picture"
+                                    : "Upload Picture",
+                                style: const TextStyle(
+                                    color: Color(0xFF1565C0),
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              const Text("JPG or PNG, max 5MB",
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    hintText: "Enter Group Name",
-                    hintStyle:
-                        const TextStyle(color: Colors.grey, fontSize: 14),
-                    filled: true,
-                    fillColor: const Color(0xFFF7F8FA),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                SizedBox(
-                  width: double.infinity,
-                  height: 45,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1565C0),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        hintText: "Enter Group Name",
+                        hintStyle:
+                            const TextStyle(color: Colors.grey, fontSize: 14),
+                        filled: true,
+                        fillColor: const Color(0xFFF7F8FA),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
                     ),
-                    onPressed: () async {
-                      if (nameController.text.isNotEmpty) {
-                        if (isEdit && folder != null) {
-                          if (folder.id != null) {
-                            await updateFolder(folder.id!, nameController.text, _pickedFile);
+                    const SizedBox(height: 15),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 45,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () async {
+                          if (nameController.text.isNotEmpty) {
+                            if (isEdit && folder != null) {
+                              if (folder.id != null) {
+                                await updateFolder(folder.id!,
+                                    nameController.text, _pickedFile);
+                              }
+                            } else {
+                              await createFolder(
+                                  nameController.text, _pickedFile);
+                            }
+                            if (mounted) Navigator.pop(context);
                           }
-                        } else {
-                          await createFolder(nameController.text, _pickedFile);
-                        }
-                        if (mounted) Navigator.pop(context);
-                      }
-                    },
-                    child: Text(
-                      isEdit ? "Confirm Changes" : "Create",
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
+                        },
+                        child: Text(isEdit ? "Confirm Changes" : "Create",
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -1263,8 +1280,10 @@ class _DashboardPageState extends State<DashboardPage> {
                         hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
                         suffixIcon: groupSearchController.text.isEmpty
                             ? const Icon(Icons.search, color: Color(0x4D000000))
-                            : IconButton( // REMARK: Added a clear button for better UX
-                                icon: const Icon(Icons.clear, color: Color(0xFF1565C0)),
+                            : IconButton(
+                                // REMARK: Added a clear button for better UX
+                                icon: const Icon(Icons.clear,
+                                    color: Color(0xFF1565C0)),
                                 onPressed: () {
                                   groupSearchController.clear();
                                   _filterGroups("");
@@ -1296,13 +1315,17 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: ListView.builder(
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
-                        itemCount: filteredFolders.isEmpty ? (groupSearchController.text.isEmpty ? 2 : 1) : filteredFolders.length + 1,
+                        itemCount: filteredFolders.isEmpty
+                            ? (groupSearchController.text.isEmpty ? 2 : 1)
+                            : filteredFolders.length + 1,
                         itemBuilder: (context, index) {
-
-                          if (filteredFolders.isEmpty && groupSearchController.text.isNotEmpty) {
+                          if (filteredFolders.isEmpty &&
+                              groupSearchController.text.isNotEmpty) {
                             return const Padding(
                               padding: EdgeInsets.symmetric(vertical: 40),
-                              child: Center(child: Text("No matching groups found", style: TextStyle(color: Colors.grey))),
+                              child: Center(
+                                  child: Text("No matching groups found",
+                                      style: TextStyle(color: Colors.grey))),
                             );
                           }
 
@@ -1323,7 +1346,9 @@ class _DashboardPageState extends State<DashboardPage> {
                             );
                           }
 
-                          if ((filteredFolders.isEmpty && index == 1) || (filteredFolders.isNotEmpty && index == filteredFolders.length)) {
+                          if ((filteredFolders.isEmpty && index == 1) ||
+                              (filteredFolders.isNotEmpty &&
+                                  index == filteredFolders.length)) {
                             return Center(
                               child: Padding(
                                 padding:
@@ -1417,15 +1442,22 @@ class _DashboardPageState extends State<DashboardPage> {
                                                 color: const Color(0x1A000000),
                                                 borderRadius:
                                                     BorderRadius.circular(8),
-                                                    image: folder.imageUrl != null && folder.imageUrl!.isNotEmpty
-                                                      ? DecorationImage(
-                                                          image: NetworkImage(folder.imageUrl!),
-                                                          fit: BoxFit.cover,
-                                                        )
-                                                      : null,
+                                                image: folder.imageUrl !=
+                                                            null &&
+                                                        folder.imageUrl!
+                                                            .isNotEmpty
+                                                    ? DecorationImage(
+                                                        image: NetworkImage(
+                                                            folder.imageUrl!),
+                                                        fit: BoxFit.cover,
+                                                      )
+                                                    : null,
                                               ),
-                                              child: folder.imageUrl == null || folder.imageUrl!.isEmpty
-                                                  ? const Icon(Icons.folder, color: Colors.grey, size: 20)
+                                              child: folder.imageUrl == null ||
+                                                      folder.imageUrl!.isEmpty
+                                                  ? const Icon(Icons.folder,
+                                                      color: Colors.grey,
+                                                      size: 20)
                                                   : null,
                                             ),
                                             const SizedBox(width: 12),
