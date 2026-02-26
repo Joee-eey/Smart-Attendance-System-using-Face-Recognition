@@ -418,7 +418,11 @@ def delete_class(class_id):
 
         schedule_name = file['schedule']
 
-        # Delete file
+        # --- DELETE ATTENDANCE ROWS FIRST ---
+        cursor.execute("DELETE FROM attendance WHERE class_id = %s", (class_id,))
+        conn.commit()
+
+        # Delete the class
         cursor.execute("DELETE FROM classes WHERE id = %s", (class_id,))
         conn.commit()
 
@@ -445,6 +449,7 @@ def delete_class(class_id):
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
+
 
 
 # DELETE: Removes from DB AND Face++ Cloud

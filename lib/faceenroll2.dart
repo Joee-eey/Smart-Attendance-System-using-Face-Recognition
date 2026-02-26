@@ -42,30 +42,6 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     super.dispose();
   }
 
-  // ---------- FETCH SUBJECTS FROM BACKEND ----------
-  // Future<void> fetchSubjects() async {
-  //   try {
-  //     final baseUrl = dotenv.env['BASE_URL'] ?? '';
-  //     if (baseUrl.isEmpty) return;
-
-  //     var uri = Uri.parse('$baseUrl/subjects');
-  //     var response = await http.get(uri);
-
-  //     log("Subjects API Response (${response.statusCode}): ${response.body}");
-
-  //     if (response.statusCode == 200) {
-  //       final List<dynamic> data = jsonDecode(response.body);
-  //       setState(() {
-  //         subjects = data.cast<Map<String, dynamic>>();
-  //       });
-  //     } else {
-  //       log("Failed to fetch subjects: ${response.statusCode}");
-  //     }
-  //   } catch (e, stackTrace) {
-  //     log("Error fetching subjects", error: e, stackTrace: stackTrace);
-  //   }
-  // }
-
   // ----------- ENROLL STUDENT FUNCTION -------------
   Future<void> enrollStudent() async {
     if (nameController.text.isEmpty ||

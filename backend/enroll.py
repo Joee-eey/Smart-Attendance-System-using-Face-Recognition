@@ -79,6 +79,10 @@ def enroll():
             # Resize/compress image to reduce size and avoid timeout
             try:
                 img = Image.open(image_path)
+
+                if img.mode == "RGBA":
+                    img = img.convert("RGB")
+                    
                 img.thumbnail((1024, 1024))  # Max width/height = 1024px
                 img.save(image_path, "JPEG", quality=85)
             except Exception as e:

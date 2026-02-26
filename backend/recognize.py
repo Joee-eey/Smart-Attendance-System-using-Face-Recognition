@@ -36,10 +36,11 @@ def get_db_connection():
 
 @recognize_bp.route("/recognize", methods=["POST"])
 def recognize_face():
-    image = request.files.get("image")
-    if not image:
-        return jsonify({"error": "No image uploaded"}), 400
-    
+
+    images = request.files.getlist("images")
+    if not images:
+        return jsonify({"error": "No images uploaded"}), 400
+
     class_id = request.form.get("class_id")
     if not class_id:
         return jsonify({"error": "No class_id provided"}), 400
@@ -51,126 +52,129 @@ def recognize_face():
 
     conn = None
     cursor = None
+
     try:
-        # Save temp image
-        os.makedirs("uploads", exist_ok=True)
-        temp_path = "uploads/temp_recognize.jpg"
-        image.save(temp_path)
-
-        # Resize image to max 1024x1024
-        img = Image.open(temp_path)
-        img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
-        img.save(temp_path, format="JPEG", quality=85)
-
-        # Detect faces
-        with open(temp_path, "rb") as img_file:
-            detect_res = requests.post(
-                DETECT_URL,
-                data={"api_key": FACEPP_API_KEY, "api_secret": FACEPP_API_SECRET},
-                files={"image_file": img_file}
-            )
-            detect_data = detect_res.json()
-
-        print("===== FACE++ DETECT RESPONSE =====")
-        print(detect_data)
-        print("=================================")
-
-        if "faces" not in detect_data or not detect_data["faces"]:
-            return jsonify({"error": "No face detected"}), 400
-
-        results_list = []
-
-        # DB connection
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        for face in detect_data["faces"]:
-            face_token = face["face_token"]
+        all_results = []
+        processed_students = set()   # prevent duplicates
+        total_marked = 0
+        duplicates_skipped = 0
 
-            # Search in faceset
-            search_res = requests.post(
-                SEARCH_URL,
-                data={
-                    "api_key": FACEPP_API_KEY,
-                    "api_secret": FACEPP_API_SECRET,
-                    "faceset_token": FACESET_TOKEN,
-                    "face_token": face_token
-                }
-            )
-            search_data = search_res.json()
+        for index, image in enumerate(images):
 
-            print("===== FACE++ SEARCH RESPONSE =====")
-            print(search_data)
-            print("=================================")
+            os.makedirs("uploads", exist_ok=True)
+            temp_path = f"uploads/temp_{index}.jpg"
+            image.save(temp_path)
 
-            if "results" not in search_data or not search_data["results"]:
-                print("[WARN] Face not recognized")
-                results_list.append({"error": "Face not recognized"})
+            # Resize
+            img = Image.open(temp_path)
+            img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+            img.save(temp_path, format="JPEG", quality=85)
+
+            # Detect
+            with open(temp_path, "rb") as img_file:
+                detect_res = requests.post(
+                    DETECT_URL,
+                    data={
+                        "api_key": FACEPP_API_KEY,
+                        "api_secret": FACEPP_API_SECRET
+                    },
+                    files={"image_file": img_file}
+                )
+                detect_data = detect_res.json()
+
+            if "faces" not in detect_data or not detect_data["faces"]:
                 continue
 
-            match = search_data["results"][0]
-            matched_token = match["face_token"]
-            confidence = match["confidence"]
+            for face in detect_data["faces"]:
 
-            if confidence < 70:
-                results_list.append({"error": "Low confidence match"})
-                continue
+                face_token = face["face_token"]
 
-            # Find student enrolled in this class
-            cursor.execute("""
-                SELECT s.id, s.name, s.course
-                FROM students s
-                JOIN student_faces sf ON s.id = sf.student_id
-                JOIN enrollments e ON s.id = e.student_id
-                JOIN classes c ON e.subject_id = c.subject_id
-                WHERE sf.face_token = %s
-                AND c.id = %s
-            """, (matched_token, class_id))
+                search_res = requests.post(
+                    SEARCH_URL,
+                    data={
+                        "api_key": FACEPP_API_KEY,
+                        "api_secret": FACEPP_API_SECRET,
+                        "faceset_token": FACESET_TOKEN,
+                        "face_token": face_token
+                    }
+                )
+                search_data = search_res.json()
 
-            student = cursor.fetchone()
-            if not student:
-                results_list.append({"error": "Student not found"})
-                continue
+                print("===== FACE++ SEARCH RESPONSE =====")
+                print(search_data)
+                print("=================================")
 
-            # Check if attendance exists today
-            cursor.execute("""
-                SELECT id FROM attendance
-                WHERE class_id = %s AND student_id = %s AND DATE(date) = %s
-            """, (class_id, student["id"], date.today()))
-            existing = cursor.fetchone()
+                if "results" not in search_data or not search_data["results"]:
+                    continue
 
-            if existing:
-                results_list.append({
-                    "id": student["id"],
-                    "name": student["name"],
-                    "course": student["course"],
-                    "status": "present",
-                    "message": "Attendance already recorded",
-                    "confidence": confidence
-                })
-            else:
+                match = search_data["results"][0]
+                matched_token = match["face_token"]
+                confidence = match["confidence"]
+
+                if confidence < 70:
+                    continue
+
+                cursor.execute("""
+                    SELECT s.id, s.name, s.course
+                    FROM students s
+                    JOIN student_faces sf ON s.id = sf.student_id
+                    JOIN enrollments e ON s.id = e.student_id
+                    JOIN classes c ON e.subject_id = c.subject_id
+                    WHERE sf.face_token = %s
+                    AND c.id = %s
+                """, (matched_token, class_id))
+
+                student = cursor.fetchone()
+                if not student:
+                    continue
+
+                student_id = student["id"]
+
+                # 🚨 CHECK IF ALREADY PROCESSED IN THIS REQUEST
+                if student_id in processed_students:
+                    duplicates_skipped += 1
+                    continue
+
+                # Check DB attendance today
+                cursor.execute("""
+                    SELECT id FROM attendance
+                    WHERE class_id = %s
+                    AND student_id = %s
+                    AND DATE(date) = %s
+                """, (class_id, student_id, date.today()))
+
+                existing = cursor.fetchone()
+
+                if existing:
+                    duplicates_skipped += 1
+                    processed_students.add(student_id)
+                    continue
+
                 # Insert attendance
                 cursor.execute("""
                     INSERT INTO attendance (class_id, student_id, date, status)
                     VALUES (%s, %s, %s, 'present')
-                """, (class_id, student["id"], date.today()))
+                """, (class_id, student_id, date.today()))
                 conn.commit()
 
-                results_list.append({
-                    "id": student["id"],
+                total_marked += 1
+                processed_students.add(student_id)
+
+                all_results.append({
+                    "id": student_id,
                     "name": student["name"],
                     "course": student["course"],
-                    "status": "present",
                     "confidence": confidence
                 })
 
-        return jsonify(results_list), 200
-
-    except mysql.connector.Error as db_err:
-        return jsonify({"error": str(db_err)}), 500
-
-    except requests.RequestException as req_err:
-        return jsonify({"error": "Face++ API error occurred"}), 500
+        return jsonify({
+            "total_students_marked": total_marked,
+            "duplicates_skipped": duplicates_skipped,
+            "recognized_students": all_results
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

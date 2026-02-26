@@ -57,21 +57,21 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     }
   }
 
-  Future<void> _toggleReminders(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('reminders_enabled', value);
+  // Future<void> _toggleReminders(bool value) async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.setBool('reminders_enabled', value);
     
-    setState(() {
-      attendanceReminders = value;
-    });
+  //   setState(() {
+  //     attendanceReminders = value;
+  //   });
 
-    if (value) {
-      await _setupAttendanceReminder();
-    } else {
-      log("Attendance reminders deactivated");
-      await NotificationService.cancelAll();
-    }
-  }
+  //   if (value) {
+  //     await _setupAttendanceReminder();
+  //   } else {
+  //     log("Attendance reminders deactivated");
+  //     await NotificationService.cancelAll();
+  //   }
+  // }
 
   Future<void> _setupAttendanceReminder() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
