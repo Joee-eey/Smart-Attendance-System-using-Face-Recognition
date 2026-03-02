@@ -21,6 +21,7 @@ dependencies:
   loading_animation_widget: ^1.3.0
   fl_chart: ^0.66.0
   google_sign_in: ^6.2.1
+  msal_auth: ^3.3.0
   provider: ^6.1.2
   pdf: ^3.10.0
   printing: ^5.11.0
@@ -39,4 +40,5 @@ flutter:
  
   assets:
   - assets/images/
+  - assets/msal_config.json
   - .env

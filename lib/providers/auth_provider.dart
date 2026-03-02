@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:userinterface/services/google_auth_service.dart';
+import 'package:userinterface/services/microsoft_auth_service.dart';
 
 /// Provider for managing authentication state
 /// Handles Google sign in state and user information
 class AuthProvider with ChangeNotifier {
 
   final GoogleAuthService _googleAuthService = GoogleAuthService();
+  final MicrosoftAuthService _microsoftAuthService = MicrosoftAuthService();
   
   GoogleUser? _currentUser;
+  MicrosoftUser? _currentMicrosoftUser;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -15,9 +18,10 @@ class AuthProvider with ChangeNotifier {
   int? _userId;
 
   GoogleUser? get currentUser => _currentUser;
+  MicrosoftUser? get currentMicrosoftUser => _currentMicrosoftUser;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _currentUser != null || _userId != null;
+  bool get isAuthenticated => _currentUser != null || _currentMicrosoftUser != null || _userId != null;
 
   /// Getter for custom login userId
   int? get userId => _userId;
@@ -55,11 +59,41 @@ class AuthProvider with ChangeNotifier {
 
     try {
       await _googleAuthService.signOut();
+      if (_currentMicrosoftUser != null) {
+        await _microsoftAuthService.signOut();
+      }
       _currentUser = null;
+      _currentMicrosoftUser = null;
       _userId = null; // Clear custom login userId too
       notifyListeners();
     } catch (e) {
       _setError('Sign-out failed: ${e.toString()}');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Signs in with Microsoft
+  Future<bool> signInWithMicrosoft({bool forceChooser = false}) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final user = await _microsoftAuthService.signInWithMicrosoft(
+        forceAccountChooser: forceChooser,
+      );
+
+      if (user == null) {
+        // User cancelled account chooser
+        return false;
+      }
+
+      _currentMicrosoftUser = user;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Sign-in failed: ${e.toString()}');
+      return false;
     } finally {
       _setLoading(false);
     }
@@ -74,6 +108,7 @@ class AuthProvider with ChangeNotifier {
   /// Clears the current user state (without calling Google sign-out)
   void clearUser() {
     _currentUser = null;
+    _currentMicrosoftUser = null;
     _userId = null; // clear custom login userId
     _clearError();
     notifyListeners();

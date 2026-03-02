@@ -138,6 +138,122 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> handleMicrosoftSignIn(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final navigator = Navigator.of(context);
+
+    setState(() => _isLoading = true);
+
+    try {
+      final signedIn = await authProvider.signInWithMicrosoft(
+        forceChooser: true,
+      );
+      final microsoftUser = authProvider.currentMicrosoftUser;
+
+      if (signedIn && microsoftUser != null) {
+        final baseUrl = (dotenv.env['BASE_URL'] ?? '').trim();
+        if (baseUrl.isEmpty) {
+          _showAnimatedDialog(
+            context,
+            icon: Icons.error_outline_rounded,
+            iconColor: const Color(0xFFEA324C),
+            title: "Sign In Failed",
+            message: "BASE_URL is not configured.",
+            buttonText: "OK",
+            onPressed: () => Navigator.of(context).pop(),
+          );
+          return;
+        }
+
+        // Send Microsoft user identity to Flask backend for user lookup/create.
+        final url = Uri.parse('$baseUrl/login/microsoft');
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'email': microsoftUser.email,
+            'name': microsoftUser.displayName,
+            'provider_id': microsoftUser.providerId,
+          }),
+        );
+
+        Map<String, dynamic>? data;
+        try {
+          data = json.decode(response.body);
+        } catch (_) {
+          data = null;
+        }
+
+        if (response.statusCode == 200) {
+          final userId = data?['user']?['id'];
+          if (userId is int) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt('user_id', userId);
+            authProvider.setUserId(userId);
+          }
+
+          _showAnimatedDialog(
+            context,
+            icon: Icons.check_circle_outline_rounded,
+            iconColor: const Color(0xFF00B38A),
+            title: "Sign In Successful",
+            message: "Welcome! You have signed in with Microsoft successfully.",
+            buttonText: "Continue",
+            onPressed: () {
+              Navigator.of(context).pop();
+              navigator.pushReplacement(
+                MaterialPageRoute(builder: (_) => const DashboardPage()),
+              );
+            },
+          );
+        } else {
+          _showAnimatedDialog(
+            context,
+            icon: Icons.error_outline_rounded,
+            iconColor: const Color(0xFFEA324C),
+            title: "Sign In Failed",
+            message: data?['message'] ?? "Microsoft backend login failed.",
+            buttonText: "OK",
+            onPressed: () => Navigator.of(context).pop(),
+          );
+        }
+      } else if (authProvider.errorMessage != null) {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
+          title: "Sign In Failed",
+          message: authProvider.errorMessage ??
+              "Microsoft sign-in failed. Please try again.",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      } else {
+        _showAnimatedDialog(
+          context,
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
+          title: "Sign In Cancelled",
+          message: "Microsoft sign-in was cancelled.",
+          buttonText: "OK",
+          onPressed: () => Navigator.of(context).pop(),
+        );
+      }
+    } catch (e) {
+      _showAnimatedDialog(
+        context,
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
+        title: "Sign In Failed",
+        message: "Microsoft sign-in failed. Please try again.",
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> loginUser(
     BuildContext context, String email, String password) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -484,7 +600,11 @@ class _LoginPageState extends State<LoginPage> {
                   width: 48,
                   height: 48,
                   child: OutlinedButton(
-                    onPressed: null,
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            handleMicrosoftSignIn(context);
+                          },
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.transparent),
                       backgroundColor: const Color(0xFFF7F8FA),

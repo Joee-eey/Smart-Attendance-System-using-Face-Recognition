@@ -1,0 +1,16 @@
+{
+  "client_id": "caa35c01-871c-4fda-8942-ec8804def57a",
+  "authorization_user_agent": "BROWSER",
+  "redirect_uri": "msauth://com.cheese.smartattendanceapp/7ZWvbuLU0UvajLWOffjxZLG34eM%3D",
+  "broker_redirect_uri_registered": false,
+  "account_mode": "SINGLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADandPersonalMicrosoftAccount",
+        "tenant_id": "common"
+      }
+    }
+  ]
+}
