@@ -99,3 +99,84 @@ def get_logs():
             cursor.close()
         if conn:
             conn.close()
+
+@sa_log_bp.route("/sa/logs/purge", methods=["POST"])
+def purge_logs():
+    """
+    Handles:
+    - Auto-purge config changes (manual = false, enable_auto may be true/false)
+    - Manual purge trigger (manual = true)
+    Deletes logs older than `retention_days` when:
+      - manual = true, OR
+      - manual = false AND enable_auto = true
+    """
+    payload = request.get_json() or {}
+    manual = bool(payload.get("manual", False))
+    enable_auto = bool(payload.get("enable_auto", False))
+    retention_days = payload.get("retention_days", 30)
+
+    try:
+        retention_days = int(retention_days)
+    except (TypeError, ValueError):
+        retention_days = 30
+
+    # if retention_days < 1:
+    #    retention_days = 1
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # If auto‑purge is disabled and this is not a manual trigger,
+        # just acknowledge the setting change without deleting anything.
+        # if not manual and not enable_auto:
+            # return jsonify({
+                # "message": "Auto-purge disabled. No logs were deleted.",
+                # "deleted": 0,
+                # "retention_days": retention_days,
+            # }), 200
+
+        # delete_sql = """
+            # DELETE FROM logs
+            # WHERE created_at < (NOW() - INTERVAL %s DAY)
+        # """
+        # cursor.execute(delete_sql, (retention_days,))
+        # deleted_count = cursor.rowcount or 0
+        # conn.commit()
+
+        if manual:
+            # 🔴 MANUAL PURGE: Delete every single log
+            delete_sql = "DELETE FROM logs"
+            cursor.execute(delete_sql)
+        else:
+            # AUTO-PURGE: Only delete if enabled and older than X days
+            if not enable_auto:
+                return jsonify({
+                    "message": "Settings updated. Auto-purge is OFF.",
+                    "deleted": 0
+                }), 200
+            
+            delete_sql = "DELETE FROM logs WHERE created_at < (NOW() - INTERVAL %s DAY)"
+            cursor.execute(delete_sql, (retention_days,))
+
+        deleted_count = cursor.rowcount or 0
+        conn.commit()
+
+        return jsonify({
+            "message": "Logs purged successfully." if manual else "Auto-purge applied.",
+            "deleted": int(deleted_count),
+            "retention_days": retention_days,
+        }), 200
+
+    except Exception as e:
+        print("[ERROR] Purge logs failed:", e)
+        if conn:
+            conn.rollback()
+        return jsonify({"message": "Failed to purge logs"}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()

@@ -35,6 +35,9 @@ class NotificationService {
       
       await androidPlugin.requestNotificationsPermission();
     }
+
+    // REMARK: Required on some Android devices for exact alarms.
+    await checkPermissions();
   }
 
   static Future<void> checkPermissions() async {
@@ -43,17 +46,22 @@ class NotificationService {
     }
   }
 
-  static Future<void> scheduleAttendanceReminder({
-    required int classId,
+  /*static Future<void> scheduleAttendanceReminder({
+    required int classId,*/
+  // REMARK: We use per-session (date-specific) notifications instead of repeating weekly,
+  // because "10 minutes before class ends IF attendance not taken" must be cancellable
+  // for only that specific session.
+  static Future<void> scheduleAttendanceStart({
+    required int notificationId,
     required String className,
     required DateTime scheduledTime,
   }) async {
-    log("SERVICE: Scheduling $className for ${scheduledTime.toLocal()}");
-    
+    log("SERVICE: Scheduling START $className for ${scheduledTime.toLocal()}");
+
     await _notificationsPlugin.zonedSchedule(
-      classId,
-      'Take Attendance! 🔔',
-      'Your class "$className" has started.',
+      notificationId,
+      'Take Attendance!',
+      'Your class "$className" has started. Take attendance now.',
       tz.TZDateTime.from(scheduledTime, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -64,10 +72,42 @@ class NotificationService {
           icon: '@mipmap/ic_launcher',
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
+  static Future<void> scheduleAttendancePreEnd({
+    required int notificationId,
+    required String className,
+    required DateTime scheduledTime,
+  }) async {
+    // log("SERVICE: Scheduling $className for ${scheduledTime.toLocal()}");
+    log("SERVICE: Scheduling PRE-END $className for ${scheduledTime.toLocal()}");
+
+    await _notificationsPlugin.zonedSchedule(
+      /* classId,
+      'Take Attendance! 🔔',
+      'Your class "$className" has started.',*/
+      notificationId,
+      'Attendance Reminder',
+      '10 minutes left for "$className". Attendance not taken yet.',
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'attendance_reminders_channel',
+          'Attendance Alerts',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+      // androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      // matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
   }
 
@@ -80,7 +120,8 @@ class NotificationService {
     );
 
     await _notificationsPlugin.show(
-      0, 
+      // 0, 
+      DateTime.now().millisecondsSinceEpoch.remainder(2000000000),
       title,
       body,
       const NotificationDetails(android: androidDetails),
@@ -102,6 +143,17 @@ class NotificationService {
       ),
     );
   }
+  static int buildSessionNotificationId({
+    required int classId,
+    required DateTime sessionDate,
+    required int type, // 1 = start, 2 = preEnd
+  }) {
+    // REMARK: Must be < 2,147,483,647 (Android int32).
+    final mmdd = (sessionDate.month * 100) + sessionDate.day; // 101..1231
+    final base = (classId % 10000) * 100000; // 0..999,900,000
+    return base + (type * 10000) + (mmdd * 10);
+  }
 
+  static Future<void> cancel(int id) async => _notificationsPlugin.cancel(id);
   static Future<void> cancelAll() async => await _notificationsPlugin.cancelAll();
 }

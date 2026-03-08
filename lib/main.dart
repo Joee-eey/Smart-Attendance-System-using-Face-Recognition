@@ -20,7 +20,11 @@ Future<void> main() async {
   await dotenv.load(fileName: ".env");
   runApp(
     ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+      create: (_) {
+        final provider = AuthProvider();
+        provider.loadSettings();
+        return provider;
+      },
       child: const SmartAttendanceApp(),
     ),
   );

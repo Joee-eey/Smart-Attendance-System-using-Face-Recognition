@@ -20,6 +20,45 @@ BASE_URL = os.environ.get("BASE_URL", "")
 def get_db_connection():
     return mysql.connector.connect(**db_config)
 
+@attendance_bp.route("/attendance/taken", methods=["GET"])
+def attendance_taken_today():
+    """
+    REMARK:
+    - Returns whether attendance has been taken today for the given class_id.
+    - Used by the mobile app to decide whether to show / schedule the
+      "10 minutes before class ends" notification.
+    """
+    try:
+        class_id = request.args.get("class_id", type=int)
+        if not class_id:
+            return jsonify({"error": "class_id is required"}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM attendance
+            WHERE class_id = %s
+              AND DATE(date) = CURDATE()
+            """,
+            (class_id,),
+        )
+        row = cursor.fetchone() or {}
+        cnt = int(row.get("cnt") or 0)
+
+        return jsonify({"taken": cnt > 0, "count": cnt}), 200
+
+    except Exception as e:
+        print(f"[ERROR] Attendance taken check failed: {e}", flush=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if "conn" in locals() and conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+
 @attendance_bp.route("/attendance", methods=["GET"])
 def get_attendance():
     try:

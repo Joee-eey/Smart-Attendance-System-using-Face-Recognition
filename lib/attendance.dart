@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:userinterface/scanattendance.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:userinterface/services/notification_service.dart';
 
 class Attendance extends StatefulWidget {
   final int classId;
@@ -454,6 +455,14 @@ class _AttendanceState extends State<Attendance> {
       final response = await http.delete(url);
 
       if (response.statusCode == 200) {
+        // REMARK: Attendance is taken now, so cancel today's "10 minutes before end" reminder.
+        final preEndId = NotificationService.buildSessionNotificationId(
+          classId: widget.classId,
+          sessionDate: DateTime.now(),
+          type: 2,
+        );
+        await NotificationService.cancel(preEndId);
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Student removed from class"),

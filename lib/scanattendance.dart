@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 import 'package:userinterface/attendance.dart';
+import 'package:userinterface/services/notification_service.dart';
 
 class ScanAttendance extends StatefulWidget {
   final int classId;
@@ -33,6 +34,8 @@ class _ScanAttendanceState extends State<ScanAttendance> {
 
   // XFile? _capturedImage; // Store captured or picked image for preview
   List<XFile> _capturedImages = [];
+  // REMARK: kept for future "preview indicator"; remove unused warning.
+  // ignore: unused_field
   int _currentPreviewIndex = 0;
 
   @override
@@ -197,6 +200,14 @@ class _ScanAttendanceState extends State<ScanAttendance> {
         final result = jsonDecode(body) as Map<String, dynamic>;
 
         final totalRecognized = result["total_students_marked"] as int;
+
+        // REMARK: Attendance is taken now, so cancel today's "10 minutes before end" reminder.
+        final preEndId = NotificationService.buildSessionNotificationId(
+          classId: widget.classId,
+          sessionDate: DateTime.now(),
+          type: 2,
+        );
+        await NotificationService.cancel(preEndId);
 
         _showAnimatedDialog(
           context: context,

@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:userinterface/changepsw.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:userinterface/services/notification_service.dart';
+import 'package:userinterface/services/attendance_reminder_sync.dart';
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -76,11 +77,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
   Future<void> _setupAttendanceReminder() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
+    if (userId == null) return;
     final baseUrl = dotenv.env['BASE_URL']!;
 
     log("REAL-SYNC: Fetching schedule for Lecturer ID: $userId");
 
-    try {
+    /* try {
       final response = await http.get(Uri.parse('$baseUrl/lecturer/$userId/schedule'));
 
       if (response.statusCode == 200) {
@@ -112,7 +114,8 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         }
         log("REAL-SYNC: Successfully synced $scheduledCount reminders.");
       }
-    } catch (e) { log("REAL-SYNC: Failed -> $e"); }
+    } catch (e) { log("REAL-SYNC: Failed -> $e"); }*/
+    await AttendanceReminderSync.sync(baseUrl: baseUrl, userId: userId);
   }
 
   DateTime _parseClassTime(String timeStr) {
@@ -678,7 +681,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                 ),
               ),
 
-              // Test Send Reminder Alert
+              /* // Test Send Reminder Alert
               if (attendanceReminders) 
                 Align(
                   alignment: Alignment.centerRight,
@@ -694,7 +697,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                     style: TextButton.styleFrom(foregroundColor: const Color(0xFF1565C0)),
                   ),
                 ), 
-                // End
+                // End */
                 
               const SizedBox(height: 15),
               SizedBox(

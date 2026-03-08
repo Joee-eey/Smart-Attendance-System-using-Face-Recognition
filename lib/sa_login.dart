@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/sa_dashboard.dart';
+import 'package:userinterface/forgotpsw.dart';
 
 class SuperAdminLoginPage extends StatefulWidget {
   const SuperAdminLoginPage({super.key});
@@ -26,9 +27,14 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
     final password = passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showDialog(
+      // _showDialog(
+      _showAnimatedDialog(
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
         title: 'Missing Information',
         message: 'Please enter both email and password.',
+        buttonText: 'OK',
+        onPressed: () => Navigator.of(context).pop(),
       );
       return;
     }
@@ -62,10 +68,15 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
 
         Provider.of<AuthProvider>(context, listen: false).setUserId(userId);
 
-        _showDialog(
+        // _showDialog(
+        _showAnimatedDialog(
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: const Color(0xFF00B38A),
           title: 'Login Successful',
           message: 'Welcome back, Super Admin!',
-          onOk: () {
+          // onOk: () {
+          buttonText: 'Continue',
+          onPressed: () {
             Navigator.of(context).pop();
             Navigator.pushReplacement(
               context,
@@ -74,36 +85,66 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
           },
         );
       } else if (response.statusCode == 401) {
-        _showDialog(
+        //_showDialog(
+        _showAnimatedDialog(
+          icon: Icons.lock_rounded,
+          iconColor: const Color(0xFF1565C0),
           title: 'Incorrect Password',
           message: 'The password you entered is incorrect. Please try again.',
+          buttonText: 'Retry',
+          onPressed: () => Navigator.of(context).pop(),
         );
       } else if (response.statusCode == 404) {
-        _showDialog(
+        // _showDialog(
+        _showAnimatedDialog(
+          icon: Icons.person_off_rounded,
+          iconColor: const Color(0xFF1565C0),
           title: 'Email Not Registered',
           message: 'The email address is not registered as a Super Admin.',
+          buttonText: 'OK',
+          onPressed: () => Navigator.of(context).pop(),
         );
       } else {
-        _showDialog(
+        // _showDialog(
+        _showAnimatedDialog(
+          icon: Icons.error_outline_rounded,
+          iconColor: const Color(0xFFEA324C),
           title: 'Login Failed',
           message: 'Unexpected error: ${response.body}',
+          buttonText: 'OK',
+          onPressed: () => Navigator.of(context).pop(),
         );
       }
     } catch (e) {
-      _showDialog(
+      // _showDialog(
+      _showAnimatedDialog(
+        icon: Icons.error_outline_rounded,
+        iconColor: const Color(0xFFEA324C),
         title: 'Connection Error',
-        message: e.toString(),
+        // message: e.toString(),
+        message: 'Connection error. Please check your network and try again.',
+        buttonText: 'OK',
+        onPressed: () => Navigator.of(context).pop(),
       );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  void _showDialog(
+  /*void _showDialog(
       {required String title, required String message, VoidCallback? onOk}) {
-    showDialog(
+    showDialog(*/
+    void _showAnimatedDialog({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    showGeneralDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      /* builder: (_) => AlertDialog(
         title: Text(title),
         content: Text(message),
         actions: [
@@ -115,7 +156,81 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
             child: Text('OK'),
           ),
         ],
-      ),
+      ),*/
+      barrierDismissible: false,
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) {
+        return const SizedBox();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final scale = Tween<double>(begin: 0.8, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+        );
+        final opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeIn),
+        );
+
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: opacity.value,
+              child: Transform.scale(
+                scale: scale.value,
+                child: AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  contentPadding: const EdgeInsets.all(24),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, color: iconColor, size: 70),
+                      const SizedBox(height: 20),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: iconColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          minimumSize: const Size(double.infinity, 45),
+                        ),
+                        onPressed: onPressed,
+                        child: Text(
+                          buttonText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -237,7 +352,15 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        // onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ForgotPassword(),
+                            ),
+                          );
+                        },
                         child: Text(
                           'Forgot Password?',
                           style: TextStyle(

@@ -1,0 +1,8 @@
+flask
+flask-cors
+flask-bcrypt
+flask-mail
+mysql-connector-python
+python-dotenv
+requests
+Pillow

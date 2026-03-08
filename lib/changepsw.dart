@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
+import 'package:userinterface/forgotpsw.dart';
 
 /*void main() {
   runApp(const MyApp());
@@ -240,7 +241,14 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: () => log("Navigate to Forgot Password Page"),
+                  // onTap: () => log("Navigate to Forgot Password Page"),
+                  onTap: () {
+                  // Navigate to the ForgotPassword page
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ForgotPassword()),
+                  );
+                },
                   child: const Text(
                     "Forgot Password?",
                     style: TextStyle(

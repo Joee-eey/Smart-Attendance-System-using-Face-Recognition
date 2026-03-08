@@ -53,6 +53,16 @@ class _DashboardPageState extends State<DashboardPage> {
 
   final TextEditingController groupSearchController = TextEditingController();
 
+  static const Map<int, String> _weekdayLabel = {
+    DateTime.monday: "Mon",
+    DateTime.tuesday: "Tue",
+    DateTime.wednesday: "Wed",
+    DateTime.thursday: "Thu",
+    DateTime.friday: "Fri",
+    DateTime.saturday: "Sat",
+    DateTime.sunday: "Sun",
+  };
+
   @override
   void initState() {
     super.initState();
@@ -84,11 +94,17 @@ class _DashboardPageState extends State<DashboardPage> {
         List classes = jsonDecode(response.body);
         await NotificationService.cancelAll(); // Refresh all timers
 
-        for (var cls in classes) {
-          DateTime classTime = _parseClassTime(cls['start_time']);
-          DateTime now = DateTime.now();
+        final now = DateTime.now();
+        const weeksToScheduleAhead = 8;
 
-          if (classTime.isAfter(now)) {
+        for (var cls in classes) {
+          // DateTime classTime = _parseClassTime(cls['start_time']);
+          // DateTime now = DateTime.now();
+          final classId = cls['id'] as int;
+          final className = (cls['course_name'] ?? 'Class').toString();
+          final scheduleStr = (cls['start_time'] ?? '').toString();
+
+          /* if (classTime.isAfter(now)) {
             await NotificationService.scheduleAttendanceReminder(
               classId: cls['id'],
               className: cls['course_name'],
@@ -97,7 +113,69 @@ class _DashboardPageState extends State<DashboardPage> {
           } else if (now.difference(classTime).inMinutes <= 30 &&
               now.difference(classTime).inMinutes >= 0) {
             await NotificationService.showInstantNotification("Class Started!",
-                "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!");
+                "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!");*/
+          final spec = _parseScheduleSpec(scheduleStr);
+          if (spec == null) continue;
+
+          // If today is a class day and we're currently within the class window,
+          // show an instant reminder (ONLY if attendance not yet taken today).
+          final isTodaySelected = spec.weekdays.contains(now.weekday);
+          if (isTodaySelected && _isNowWithinWindow(now, spec.start, spec.end)) {
+            final taken = await _isAttendanceTakenToday(baseUrl, classId);
+            if (!taken) {
+              await NotificationService.showInstantNotification(
+                "Class In Progress",
+                'Your class "$className" is ongoing. Take attendance now.',
+              );
+            }
+          }
+
+          for (final weekday in spec.weekdays) {
+            DateTime nextStart = _nextWeekdayTime(
+              from: now,
+              weekday: weekday,
+              time: spec.start,
+            );
+
+            for (int i = 0; i < weeksToScheduleAhead; i++) {
+              final sessionDate = nextStart.add(Duration(days: 7 * i));
+              final sessionEnd = DateTime(
+                sessionDate.year,
+                sessionDate.month,
+                sessionDate.day,
+                spec.end.hour,
+                spec.end.minute,
+              );
+
+              // START notification
+              if (sessionDate.isAfter(now)) {
+                final startId = NotificationService.buildSessionNotificationId(
+                  classId: classId,
+                  sessionDate: sessionDate,
+                  type: 1,
+                );
+                await NotificationService.scheduleAttendanceStart(
+                  notificationId: startId,
+                  className: className,
+                  scheduledTime: sessionDate,
+                );
+              }
+
+              // PRE-END notification (10 minutes before end)
+              final preEndTime = sessionEnd.subtract(const Duration(minutes: 10));
+              if (preEndTime.isAfter(now)) {
+                final preEndId = NotificationService.buildSessionNotificationId(
+                  classId: classId,
+                  sessionDate: sessionDate,
+                  type: 2,
+                );
+                await NotificationService.scheduleAttendancePreEnd(
+                  notificationId: preEndId,
+                  className: className,
+                  scheduledTime: preEndTime,
+                );
+              }
+            }
           }
         }
         log("DASHBOARD: Sync complete.");
@@ -107,16 +185,134 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  DateTime _parseClassTime(String timeStr) {
-    final now = DateTime.now();
+  /*DateTime _parseClassTime(String timeStr) {
+    final now = DateTime.now();*/
+  Future<bool> _isAttendanceTakenToday(String baseUrl, int classId) async {
     try {
-      final cleanTime = timeStr.split(' ')[0];
+      final resp =
+          await http.get(Uri.parse('$baseUrl/attendance/taken?class_id=$classId'));
+      if (resp.statusCode != 200) return false;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      return (data['taken'] == true);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _isNowWithinWindow(DateTime now, TimeOfDay start, TimeOfDay end) {
+    final startDt = DateTime(now.year, now.month, now.day, start.hour, start.minute);
+    final endDt = DateTime(now.year, now.month, now.day, end.hour, end.minute);
+    return now.isAfter(startDt) && now.isBefore(endDt);
+  }
+
+  DateTime _nextWeekdayTime({
+    required DateTime from,
+    required int weekday,
+    required TimeOfDay time,
+  }) {
+    // Weekday uses DateTime weekday (Mon=1..Sun=7).
+    final today = DateTime(from.year, from.month, from.day, time.hour, time.minute);
+    int deltaDays = (weekday - from.weekday) % 7;
+    DateTime candidate = today.add(Duration(days: deltaDays));
+    if (!candidate.isAfter(from)) {
+      candidate = candidate.add(const Duration(days: 7));
+    }
+    return candidate;
+  }
+
+  _ScheduleSpec? _parseScheduleSpec(String scheduleStr) {
+    try {
+      final raw = scheduleStr.trim();
+      String daysPart = "";
+      String timePart = raw;
+
+      if (raw.contains("|")) {
+        final parts = raw.split("|");
+        daysPart = parts[0].trim();
+        timePart = parts.sublist(1).join("|").trim();
+      }
+
+      final rangeParts = timePart.split("-");
+      if (rangeParts.length < 2) return null;
+
+      final startStr = rangeParts[0].trim();
+      final endStr = rangeParts.sublist(1).join("-").trim();
+
+      final start = _parseTimeOfDay(startStr);
+      final end = _parseTimeOfDay(endStr);
+      if (start == null || end == null) return null;
+
+      final weekdays = <int>{};
+      if (daysPart.isNotEmpty) {
+        final tokens = daysPart
+            .split(",")
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+
+        for (final t in tokens) {
+          final w = _weekdayFromLabel(t);
+          if (w != null) weekdays.add(w);
+        }
+      }
+
+      // Backward compatibility: if no days were saved, assume "today".
+      if (weekdays.isEmpty) {
+        weekdays.add(DateTime.now().weekday);
+      }
+
+      return _ScheduleSpec(weekdays: weekdays.toList(), start: start, end: end);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int? _weekdayFromLabel(String label) {
+    final normalized = label.toLowerCase();
+    for (final entry in _weekdayLabel.entries) {
+      if (entry.value.toLowerCase() == normalized) return entry.key;
+    }
+    // Accept full names too
+    switch (normalized) {
+      case "monday":
+        return DateTime.monday;
+      case "tuesday":
+        return DateTime.tuesday;
+      case "wednesday":
+        return DateTime.wednesday;
+      case "thursday":
+        return DateTime.thursday;
+      case "friday":
+        return DateTime.friday;
+      case "saturday":
+        return DateTime.saturday;
+      case "sunday":
+        return DateTime.sunday;
+    }
+    return null;
+  }
+
+  TimeOfDay? _parseTimeOfDay(String s) {
+    // Handles "08:30 AM" (preferred) and "08:30" (fallback).
+    final v = s.trim();
+    try {
+      /* final cleanTime = timeStr.split(' ')[0];
       final parts = cleanTime.split(':');
       return DateTime(now.year, now.month, now.day, int.parse(parts[0]),
           int.parse(parts[1]));
     } catch (e) {
       return now.subtract(const Duration(days: 1));
-    }
+    }*/
+    if (v.toLowerCase().contains("am") || v.toLowerCase().contains("pm")) {
+        final dt = DateFormat('hh:mm a').parse(v);
+        return TimeOfDay(hour: dt.hour, minute: dt.minute);
+      }
+      final parts = v.split(":");
+      if (parts.length >= 2) {
+        return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      }
+    } catch (_) {}
+    return null;
   }
 
   void _filterGroups(String query) {
@@ -644,7 +840,8 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> createFolder(String name, XFile? imageFile) async {
+  // Future<void> createFolder(String name, XFile? imageFile) async {
+  Future<bool> createFolder(String name, XFile? imageFile) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects');
 
@@ -653,7 +850,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (userId == null) {
       log("User not logged in, cannot create folder");
-      return;
+      // return;
+      return false;
     }
 
     try {
@@ -672,19 +870,45 @@ class _DashboardPageState extends State<DashboardPage> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         log('Folder created successfully');
         fetchFolders();
+        return true;
       } else {
         log('Failed to create folder: ${response.body}');
+        try {
+          final body = jsonDecode(response.body);
+          final msg = body is Map && body['message'] != null
+              ? body['message'].toString()
+              : 'Failed to create folder';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+            );
+          }
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to create folder'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+        return false;
       }
     } catch (e) {
       log('Error creating folder', error: e);
+      return false;
     }
   }
 
-  Future<void> updateFolder(int id, String name, XFile? imageFile) async {
+  // Future<void> updateFolder(int id, String name, XFile? imageFile) async {
+  Future<bool> updateFolder(int id, String name, XFile? imageFile) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects/$id');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
+
+    if (userId == null) return false;
 
     try {
       var request = http.MultipartRequest('PUT', url);
@@ -702,11 +926,34 @@ class _DashboardPageState extends State<DashboardPage> {
       if (response.statusCode == 200) {
         log('Folder updated successfully');
         fetchFolders();
+        return true;
       } else {
         log('Failed to update folder: ${response.body}');
+        try {
+          final body = jsonDecode(response.body);
+          final msg = body is Map && body['message'] != null
+              ? body['message'].toString()
+              : 'Failed to update folder';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+            );
+          }
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to update folder'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+        return false;
       }
     } catch (e) {
       log('Error updating folder', error: e);
+      return false;
     }
   }
 
@@ -732,12 +979,15 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> createFile(int folderId, String name) async {
+  // Future<void> createFile(int folderId, String name) async {
+  Future<bool> createFile(int folderId, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
 
-    // Pass userId as query parameter
+    ////// Pass userId as query parameter
+    if (userId == null) return false;
+
     final url = Uri.parse('$baseUrl/subjects/$folderId/files?user_id=$userId');
 
     try {
@@ -752,20 +1002,46 @@ class _DashboardPageState extends State<DashboardPage> {
         final folderIndex = folders.indexWhere((f) => f.id == folderId);
         if (folderIndex != -1) fetchFiles(folders[folderIndex]);
         _syncRemindersInBackground();
+        return true;
       } else {
         log('Failed to create file: ${response.body}');
+        try {
+          final body = jsonDecode(response.body);
+          final msg = body is Map && body['message'] != null
+              ? body['message'].toString()
+              : 'Failed to create schedule';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+            );
+          }
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to create schedule'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+        return false;
       }
     } catch (e) {
       log('Error creating file', error: e);
+      return false;
     }
   }
 
-  Future<void> updateFile(Folder folder, int fileId, String name) async {
+  // Future<void> updateFile(Folder folder, int fileId, String name) async {
+  Future<bool> updateFile(Folder folder, int fileId, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
 
-    // Pass userId as query parameter
+    ///// Pass userId as query parameter
+    if (userId == null) return false;
+
     final url = Uri.parse('$baseUrl/classes/$fileId?user_id=$userId');
 
     try {
@@ -778,11 +1054,34 @@ class _DashboardPageState extends State<DashboardPage> {
       if (response.statusCode == 200) {
         log('File updated successfully');
         fetchFiles(folder);
+        return true;
       } else {
         log('Failed to update file: ${response.body}');
+        try {
+          final body = jsonDecode(response.body);
+          final msg = body is Map && body['message'] != null
+              ? body['message'].toString()
+              : 'Failed to update schedule';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+            );
+          }
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to update schedule'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+        return false;
       }
     } catch (e) {
       log('Error updating file', error: e);
+      return false;
     }
   }
 
@@ -931,16 +1230,22 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         onPressed: () async {
                           if (nameController.text.isNotEmpty) {
-                            if (isEdit && folder != null) {
+                            /*if (isEdit && folder != null) {
                               if (folder.id != null) {
                                 await updateFolder(folder.id!,
                                     nameController.text, _pickedFile);
-                              }
+                              }*/
+                            bool ok = false;
+                            if (isEdit && folder != null && folder.id != null) {
+                              ok = await updateFolder(folder.id!,
+                                  nameController.text, _pickedFile);
                             } else {
-                              await createFolder(
+                              // await createFolder(
+                              ok = await createFolder(
                                   nameController.text, _pickedFile);
                             }
-                            if (mounted) Navigator.pop(context);
+                            // if (mounted) Navigator.pop(context);
+                            if (mounted && ok) Navigator.pop(context);
                           }
                         },
                         child: Text(isEdit ? "Confirm Changes" : "Create",
@@ -963,6 +1268,17 @@ class _DashboardPageState extends State<DashboardPage> {
     // Controllers for the time fields
     final TextEditingController startTimeController = TextEditingController();
     final TextEditingController endTimeController = TextEditingController();
+    final Set<int> selectedWeekdays = {};
+
+    // Prefill when editing
+    if (isEdit && file != null) {
+      final spec = _parseScheduleSpec(file.name);
+      if (spec != null) {
+        startTimeController.text = _formatTimeOfDay(spec.start);
+        endTimeController.text = _formatTimeOfDay(spec.end);
+        selectedWeekdays.addAll(spec.weekdays);
+      }
+    }
 
     // Helper function to pick time
     Future<void> _selectTime(TextEditingController controller) async {
@@ -1028,7 +1344,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28)),
                 ),
-                // FIXED: Only one textButtonTheme allowed
+                // Only one textButtonTheme allowed
                 textButtonTheme: TextButtonThemeData(
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF1565C0),
@@ -1058,7 +1374,7 @@ class _DashboardPageState extends State<DashboardPage> {
             DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
         setState(() {
           controller.text =
-              DateFormat('hh:mm a').format(dt); // Forces "08:30 AM"
+              DateFormat('hh:mm a').format(dt);
         });
       }
     }
@@ -1066,6 +1382,8 @@ class _DashboardPageState extends State<DashboardPage> {
     showDialog(
       context: context,
       builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1111,7 +1429,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 _buildTimeField("Select End Time", endTimeController,
                     () => _selectTime(endTimeController)),
 
-                const SizedBox(height: 15),
+                /*const SizedBox(height: 15),
                 SizedBox(
                   width: double.infinity,
                   height: 45,
@@ -1143,10 +1461,103 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
             ),
-          ),
+          ),*/
+          const SizedBox(height: 12),
+
+                    const Text(
+                      "Select Days",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0x80000000),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _weekdayLabel.entries.map((e) {
+                        final selected = selectedWeekdays.contains(e.key);
+                        return ChoiceChip(
+                          label: Text(e.value),
+                          selected: selected,
+                          selectedColor: const Color(0xFFE3F2FD),
+                          backgroundColor: Colors.white,
+                          // side: BorderSide(color: selected ? const Color(0xFF1565C0) : const Color(0xFFE0E0E0)),
+                          labelStyle: TextStyle(
+                            color: selected ? const Color(0xFF1565C0) : Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          onSelected: (val) {
+                            setDialogState(() {
+                              if (val) {
+                                selectedWeekdays.add(e.key);
+                              } else {
+                                selectedWeekdays.remove(e.key);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 15),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 45,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () async {
+                          if (startTimeController.text.isEmpty ||
+                              endTimeController.text.isEmpty ||
+                              selectedWeekdays.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Please select start time, end time, and at least one day."),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+
+                          final daysText = selectedWeekdays.toList()
+                            ..sort();
+                          final daysLabel = daysText.map((w) => _weekdayLabel[w]!).join(", ");
+                          final combinedName =
+                              "$daysLabel | ${startTimeController.text} - ${endTimeController.text}";
+
+                          if (isEdit && file != null) {
+                            await updateFile(folder, file.id, combinedName);
+                          } else if (folder.id != null) {
+                            await createFile(folder.id!, combinedName);
+                          }
+                          if (mounted) Navigator.pop(context);
+                        },
+                        child: Text(
+                          isEdit ? "Save Changes" : "Create",
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
+  }
+
+  String _formatTimeOfDay(TimeOfDay t) {
+    final now = DateTime.now();
+    final dt = DateTime(now.year, now.month, now.day, t.hour, t.minute);
+    return DateFormat('hh:mm a').format(dt);
   }
 
   // Helper widget to maintain the UI style in your image
@@ -1756,4 +2167,16 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+}
+
+class _ScheduleSpec {
+  final List<int> weekdays; // DateTime weekday integers (1..7)
+  final TimeOfDay start;
+  final TimeOfDay end;
+
+  _ScheduleSpec({
+    required this.weekdays,
+    required this.start,
+    required this.end,
+  });
 }
