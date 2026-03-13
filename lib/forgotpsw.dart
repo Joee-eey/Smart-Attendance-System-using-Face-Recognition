@@ -46,6 +46,41 @@ class _ForgotPasswordState extends State<ForgotPassword> {
     super.dispose();
   }
 
+  // Password Requirement Helpers
+  bool get hasEightChars => _newPasswordController.text.length >= 8;
+  bool get hasUppercase => _newPasswordController.text.contains(RegExp(r'[A-Z]'));
+  bool get hasLowercase => _newPasswordController.text.contains(RegExp(r'[a-z]'));
+  bool get hasDigit => _newPasswordController.text.contains(RegExp(r'[0-9]'));
+  bool get hasSpecial => _newPasswordController.text.contains(RegExp(r'[^A-Za-z0-9]'));
+
+Widget _buildRequirementItem(String text, bool met) {
+    return Row(
+      children: [
+        Icon(
+          met ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          size: 16,
+          color: met ? const Color(0xFF00B38A) : Colors.grey,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: met ? const Color(0xFF00B38A) : Colors.black54,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _newPasswordController.addListener(() {
+      setState(() {});
+    });
+  }
+
   /// STEP 1: Request the 6-digit code
   Future<void> _requestVerificationCode() async {
     final email = _emailController.text.trim();
@@ -95,7 +130,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
 
     try {
       final baseUrl = dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5001';
-      final url = Uri.parse('$baseUrl/reset-password'); // REMARK: New Endpoint
+      final url = Uri.parse('$baseUrl/reset-password');
 
       final response = await http.post(
         url,
@@ -235,6 +270,11 @@ class _ForgotPasswordState extends State<ForgotPassword> {
 
                 // Resend Code Section
                 const SizedBox(height: 15),
+                _buildRequirementItem("At least 8 characters", hasEightChars),
+                _buildRequirementItem("At least one uppercase letter", hasUppercase),
+                _buildRequirementItem("At least one lowercase letter", hasLowercase),
+                _buildRequirementItem("At least one number", hasDigit),
+                _buildRequirementItem("At least one special character", hasSpecial),
                 Center(
                   child: TextButton(
                     onPressed: _resendTimer > 0 ? null : _requestVerificationCode,
@@ -266,7 +306,11 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                     : (_isCodeSent ? _resetPassword : _requestVerificationCode),
                   child: _isLoading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(_isCodeSent ? "Reset Password" : "Send Code", style: const TextStyle(color: Colors.white)),
+                      : Text(_isCodeSent ? "Reset Password" : "Send Code", 
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 16, 
+                        color: Colors.white)),
                 ),
               ),
             ],

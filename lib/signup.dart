@@ -130,7 +130,7 @@ class _SignupPageState extends State<SignupPage> {
       ],
     );
   }
-  
+
   Widget build(BuildContext context) {
     final primary = Theme.of(context).primaryColor;
 
@@ -151,7 +151,7 @@ class _SignupPageState extends State<SignupPage> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 50.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 55.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -388,7 +388,7 @@ class _SignupPageState extends State<SignupPage> {
               ],
             ),
 
-            /*const SizedBox(height: 18),
+            const SizedBox(height: 18),
 
             Row(
               children: const [
@@ -410,54 +410,35 @@ class _SignupPageState extends State<SignupPage> {
 
             const SizedBox(height: 20),
 
+            // Log in with Google/Microsoft SSO
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Google Button
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: null, 
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.transparent),
-                      backgroundColor: const Color(0xFFF7F8FA),
-                      shape: const CircleBorder(),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: Image.asset(
-                      'assets/images/google.png',
-                      width: 20,
-                      height: 20,
-                    ),
-                  ),
+                const Text(
+                  "Google or Microsoft account? ",
+                  style: TextStyle(color: Color(0xB2000000)),
                 ),
-
-                const SizedBox(width: 20),
-
-                // Microsoft Button
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: null,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.transparent),
-                      backgroundColor: const Color(0xFFF7F8FA),
-                      shape: const CircleBorder(),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: Image.asset(
-                      'assets/images/Microsoft.png',
-                      width: 20,
-                      height: 20,
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginPage(),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    "Log in with SSO",
+                    style: TextStyle(
+                      color: primary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
-            ), */
-            
-            const SizedBox(height: 70),
+            ),
+
+            const SizedBox(height: 60),
 
             // Log in link
             Row(
