@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import mysql.connector
 from flask_bcrypt import Bcrypt
 import os
+import re
 from dotenv import load_dotenv
 
 signup_bp = Blueprint('signup', __name__)
@@ -34,6 +35,20 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     conn.commit()
     cursor.close()
 
+def is_strong_password(password: str) -> bool:
+    """At least 8 chars, digit, lower, upper, symbol."""
+    if len(password) < 8:
+        return False
+    if not re.search(r"[0-9]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", password):
+        return False
+    return True
+
 @signup_bp.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -47,6 +62,12 @@ def signup():
 
     if not all([username, email, password]):
         return jsonify({'message': 'Missing username, email, or password'}), 400
+
+    if not is_strong_password(password):
+        return jsonify({
+            'message': 'Password must be at least 8 characters and include a digit, '
+                       'a lowercase letter, an uppercase letter, and a symbol.'
+        }), 400
 
     conn = None
     try:

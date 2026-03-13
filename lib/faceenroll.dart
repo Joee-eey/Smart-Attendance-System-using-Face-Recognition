@@ -4,7 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:userinterface/faceenroll2.dart';
-import 'package:userinterface/dashboard.dart';
+import 'package:flutter_exif_rotation/flutter_exif_rotation.dart';
 
 class Enrollment extends StatefulWidget {
   const Enrollment({super.key});
@@ -65,15 +65,14 @@ class _ScannerScreenState extends State<ScannerScreen> {
   bool soundOn = false;
   bool flashOn = false;
   bool _isCameraReady = false;
+  bool _isAddingPhoto = false;
 
   int currentCameraIndex = 0;
   CameraController? _controller;
+  int _currentPreviewIndex = 0;
 
-  // Store captured or picked image for preview
-  XFile? _capturedImage; 
-
-  // Store multiple picked images (gallery long press)
-  List<XFile> _pickedImages = [];
+  // Store multiple captured/picked images (same logic as scanattendance)
+  List<XFile> _capturedImages = [];
 
   double _currentZoom = 1.0;
   double _minZoom = 1.0;
@@ -143,42 +142,49 @@ class _ScannerScreenState extends State<ScannerScreen> {
     await _initializeCamera(widget.cameras[currentCameraIndex]);
   }
 
-  void _capturePhoto() async {
+  /*void _capturePhoto() async {
     if (!_isCameraReady || _controller == null) return;
 
     try {
       final XFile image = await _controller!.takePicture();
-      await _controller!.pausePreview();
-      if (_controller!.value.isStreamingImages) {
-        await _controller!.stopImageStream();
-      }
-
       setState(() {
-        _capturedImage = image;
+        _capturedImages.add(image);
+        _currentPreviewIndex = _capturedImages.length - 1;
+        _isAddingPhoto = false;
       });
     } catch (e) {
       debugPrint("Error capturing photo: $e");
     }
+  }*/
+  void _capturePhoto() async {
+  if (!_isCameraReady || _controller == null) return;
+
+  try {
+    final XFile image = await _controller!.takePicture();
+
+    final fixedImage =
+        await FlutterExifRotation.rotateImage(path: image.path);
+
+    setState(() {
+      _capturedImages.add(XFile(fixedImage.path));
+      _currentPreviewIndex = _capturedImages.length - 1;
+      _isAddingPhoto = false;
+    });
+  } catch (e) {
+    debugPrint("Error capturing photo: $e");
   }
+}
 
   Future<void> _safeNavigate(String routeName) async {
-    // 1. Stop the camera hardware immediately
     if (_controller != null && _controller!.value.isInitialized) {
       await _controller!.dispose();
       _controller = null;
-      debugPrint("DEBUG: Camera disposed safely before navigation.");
     }
-
-    // 2. Clear the images from memory if any
     setState(() {
-      _capturedImage = null;
+      _capturedImages.clear();
       _isCameraReady = false;
     });
-
-    // 3. Small delay to let Android finish hardware cleanup
     await Future.delayed(const Duration(milliseconds: 100));
-
-    // 4. Navigate
     if (mounted) {
       Navigator.pushReplacementNamed(context, routeName);
     }
@@ -198,44 +204,54 @@ class _ScannerScreenState extends State<ScannerScreen> {
   //   }
   // }
 
+  /*void _pickMultipleImages() async {
+    try {
+      final picker = ImagePicker();
+      final List<XFile> images = await picker.pickMultiImage();
+
+      if (images.isNotEmpty && mounted) {
+        setState(() {
+          _capturedImages = images;
+          _currentPreviewIndex = 0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking multiple images: $e");
+    }
+  }*/
   void _pickMultipleImages() async {
   try {
     final picker = ImagePicker();
     final List<XFile> images = await picker.pickMultiImage();
 
     if (images.isNotEmpty && mounted) {
-      _pickedImages = images;
 
-      // Dispose camera before navigating
-      await _controller?.dispose();
-      _controller = null;
+      List<XFile> fixedImages = [];
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => EnrollmentPage(
-            imagePaths: images.map((e) => e.path).toList(),
-          ),
-        ),
-      );
+      for (var img in images) {
+        final fixed = await FlutterExifRotation.rotateImage(path: img.path);
+        fixedImages.add(XFile(fixed.path));
+      }
+
+      setState(() {
+        _capturedImages = fixedImages;
+        _currentPreviewIndex = 0;
+      });
     }
   } catch (e) {
     debugPrint("Error picking multiple images: $e");
   }
 }
 
-
-  // CONFIRM IMAGE FUNCTION
   void _confirmImage() async {
-    if (_controller != null) {
+    if (_capturedImages.isEmpty) return;
+
+    if (_controller != null && _controller!.value.isInitialized) {
       await _controller!.dispose();
-        _controller = null;
-      }
+      _controller = null;
+    }
 
-      setState(() {
-      _isCameraReady = false;
-    });
-
+    setState(() => _isCameraReady = false);
     await Future.delayed(const Duration(milliseconds: 300));
 
     if (!mounted) return;
@@ -243,23 +259,23 @@ class _ScannerScreenState extends State<ScannerScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => EnrollmentPage(
-          imagePaths: [_capturedImage!.path],
+          imagePaths: _capturedImages.map((e) => e.path).toList(),
         ),
       ),
     );
   }
 
-
   void _retakeImage() async {
-    await _controller?.dispose();
-    _controller = null;
-
     setState(() {
-      _capturedImage = null;
-      _isCameraReady = false;
+      _capturedImages.clear();
     });
-    
-    _initializeCamera(widget.cameras[currentCameraIndex]);
+
+    if (_controller != null &&
+        _controller!.value.isInitialized &&
+        !_controller!.value.isTakingPicture &&
+        !_controller!.value.isStreamingImages) {
+      await _controller!.resumePreview();
+    }
   }
 
   @override
@@ -274,7 +290,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
       bottomNavigationBar: _buildBottomNavigationBar(),
-      body: _capturedImage != null ? _buildPreview() : _buildCameraUI(),
+      body: (_capturedImages.isNotEmpty && !_isAddingPhoto)
+          ? _buildPreview()
+          : _buildCameraUI(),
     );
   }
 
@@ -555,11 +573,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget _buildPreview() {
     return Stack(
       children: [
-        SizedBox.expand(
-          child: Image.file(
-            File(_capturedImage!.path),
-            fit: BoxFit.cover,
-          ),
+        PageView.builder(
+          itemCount: _capturedImages.length,
+          onPageChanged: (index) => setState(() => _currentPreviewIndex = index),
+          itemBuilder: (context, index) {
+            return SizedBox.expand(
+              child: Image.file(
+                File(_capturedImages[index].path),
+                fit: BoxFit.contain,
+              ),
+            );
+          },
         ),
         Positioned(
           top: 35,
@@ -567,6 +591,44 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: GestureDetector(
             onTap: _retakeImage,
             child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 28),
+          ),
+        ),
+        if (_capturedImages.length > 1)
+          Positioned(
+            top: 35,
+            right: 16,
+            child: Text(
+              "${_currentPreviewIndex + 1} / ${_capturedImages.length}",
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        Positioned(
+          bottom: 40,
+          left: MediaQuery.of(context).size.width / 2 - 25,
+          child: GestureDetector(
+            onTap: () async {
+              setState(() => _isAddingPhoto = true);
+              if (_controller != null &&
+                  _controller!.value.isInitialized &&
+                  !_controller!.value.isTakingPicture &&
+                  !_controller!.value.isStreamingImages) {
+                try {
+                  await _controller!.resumePreview();
+                } catch (e) {
+                  debugPrint("Error resuming preview: $e");
+                }
+              }
+            },
+            child: Column(
+              children: const [
+                Icon(Icons.add_circle_outline, color: Colors.white, size: 40),
+                SizedBox(height: 5),
+                Text(
+                  "Add",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
           ),
         ),
         Positioned(
@@ -693,4 +755,3 @@ class FaceOutlinePainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
-

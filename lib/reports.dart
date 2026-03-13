@@ -387,6 +387,14 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
               ),
               const SizedBox(height: 10),
 
+              if (selectedGroupId == null) ...[
+                _buildEmptyState(
+                  icon: Icons.bar_chart_rounded,
+                  title: "No selection yet",
+                  subtitle: "Select a Group below to view attendance report.\nYou can also pick a Date and Schedule Time for more details.",
+                ),
+              ] else ...[
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -399,6 +407,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
               const Text("Attendance Trends", style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
               const SizedBox(height: 10),
               _buildTrendContainer(),
+              ],
               const SizedBox(height: 25),
               const Text("Filter & Export", style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
               const SizedBox(height: 15),
@@ -432,6 +441,35 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
           ),
         ),
         bottomNavigationBar: _buildBottomNav(),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({required IconData icon, required String title, required String subtitle}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x1A000000)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 48, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0x80000000)),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -785,6 +823,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: const Color(0x1A000000)),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -792,6 +831,9 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
         child: DropdownButton<int>(
           value: value,
           isExpanded: true,
+          // dropdownColor: Colors.white,
+          dropdownColor: const Color(0xFFF5F7FB),
+          // borderRadius: BorderRadius.circular(12),
           hint: Text(hint, style: const TextStyle(color: Colors.black, fontSize: 14)),
           items: items.map<DropdownMenuItem<int>>((item) {
             return DropdownMenuItem<int>(

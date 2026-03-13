@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:userinterface/services/google_auth_service.dart';
 import 'package:userinterface/services/microsoft_auth_service.dart';
 
@@ -14,8 +15,12 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  /// NEW: For your custom login
+  /// For custom login
   int? _userId;
+
+  // SSO SETTINGS
+  bool _googleSSOEnabled = true;
+  bool _microsoftSSOEnabled = true;
 
   GoogleUser? get currentUser => _currentUser;
   MicrosoftUser? get currentMicrosoftUser => _currentMicrosoftUser;
@@ -26,8 +31,47 @@ class AuthProvider with ChangeNotifier {
   /// Getter for custom login userId
   int? get userId => _userId;
 
+  bool get googleSSOEnabled => _googleSSOEnabled;
+  bool get microsoftSSOEnabled => _microsoftSSOEnabled;
+
+  /// Load saved settings
+  Future<void> loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    _googleSSOEnabled = prefs.getBool('google_sso') ?? true;
+    _microsoftSSOEnabled = prefs.getBool('microsoft_sso') ?? true;
+
+    notifyListeners();
+  }
+
+  /// Update Google SSO
+  Future<void> setGoogleSSO(bool value) async {
+    _googleSSOEnabled = value;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('google_sso', value);
+
+    notifyListeners();
+  }
+
+  /// Update Microsoft SSO
+  Future<void> setMicrosoftSSO(bool value) async {
+    _microsoftSSOEnabled = value;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('microsoft_sso', value);
+
+    notifyListeners();
+  }
+
   /// Signs in with Google
   Future<bool> signInWithGoogle({bool forceChooser = false}) async {
+
+    if (!_googleSSOEnabled) {
+      _setError("Google SSO disabled by administrator.");
+      return false;
+    }
+
     _setLoading(true);
     _clearError();
 
@@ -75,6 +119,12 @@ class AuthProvider with ChangeNotifier {
 
   /// Signs in with Microsoft
   Future<bool> signInWithMicrosoft({bool forceChooser = false}) async {
+
+    if (!_microsoftSSOEnabled) {
+      _setError("Microsoft SSO disabled by administrator.");
+      return false;
+    }
+    
     _setLoading(true);
     _clearError();
 
@@ -99,7 +149,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// NEW: Set userId for custom login
+  /// Set userId for custom login
   void setUserId(int id) {
     _userId = id;
     notifyListeners();

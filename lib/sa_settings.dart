@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:userinterface/providers/auth_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
 
-
-void main() {
+/*void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   runApp(const SuperAdminSettingsApp());
-}
+}*/
 
 class SuperAdminSettingsApp extends StatelessWidget {
   const SuperAdminSettingsApp({super.key});
@@ -41,13 +45,47 @@ class SuperAdminSettingsPage extends StatefulWidget {
 }
 
 class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
-  bool googleSSO = true;
-  bool microsoftSSO = false;
+  // bool googleSSO = true;
+  // bool microsoftSSO = false;
 
   bool enableAutoPurge = true;
-  double retentionDays = 30;
+  // double retentionDays = 30;
 
-  // 🔴 Manual Purge Confirmation Dialog
+  // Define the specific allowed values
+  final List<int> _retentionOptions = [7, 96, 180, 275, 365];
+  
+  // Track the current index (0 to 4) instead of the raw day count
+  int _currentStep = 0; 
+
+  // Helper to get actual days from the current step
+  int get retentionDays => _retentionOptions[_currentStep];
+
+  Future<void> _handlePurge({required bool isManual}) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final url = Uri.parse('$baseUrl/sa/logs/purge'); 
+      
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'manual': isManual,
+          'enable_auto': enableAutoPurge,
+          'retention_days': retentionDays,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isManual ? "Logs purged successfully!" : "Settings saved.")),
+        );
+      }
+    } catch (e) {
+      debugPrint("Purge error: $e");
+    }
+  }
+
+  // Manual Purge Confirmation Dialog
   void _showManualPurgeDialog() {
     showDialog(
       context: context,
@@ -109,8 +147,9 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                           ),
                         ),
                         onPressed: () {
-                          // TODO: perform manual purge logic here
+                          // Perform manual purge logic here
                           Navigator.pop(context);
+                          _handlePurge(isManual: true);
                         },
                         child: const Text(
                           "Purge Now",
@@ -130,6 +169,8 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -166,7 +207,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                       Transform.scale(
                         scale: 0.8,
                         child: Switch(
-                          value: googleSSO,
+                          /*value: googleSSO,
                           activeThumbColor: const Color(0xFF1565C0),
                           activeTrackColor: const Color(0x331565C0),
                           inactiveThumbColor: Colors.grey.shade400,
@@ -176,7 +217,10 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                               WidgetStateProperty.all(Colors.transparent),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (v) => setState(() => googleSSO = v),
+                          onChanged: (v) => setState(() => googleSSO = v),*/
+                          value: authProvider.googleSSOEnabled,
+                          activeThumbColor: const Color(0xFF1565C0),
+                          onChanged: (v) => authProvider.setGoogleSSO(v),
                         ),
                       ),
                     ],
@@ -189,7 +233,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                       Transform.scale(
                         scale: 0.8,
                         child: Switch(
-                          value: microsoftSSO,
+                          /* value: microsoftSSO,
                           activeThumbColor: const Color(0xFF1565C0),
                           activeTrackColor: const Color(0x331565C0),
                           inactiveThumbColor: Colors.grey.shade400,
@@ -199,7 +243,10 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                               WidgetStateProperty.all(Colors.transparent),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (v) => setState(() => microsoftSSO = v),
+                          onChanged: (v) => setState(() => microsoftSSO = v),*/
+                          value: authProvider.microsoftSSOEnabled,
+                          activeThumbColor: const Color(0xFF1565C0),
+                          onChanged: (v) => authProvider.setMicrosoftSSO(v),
                         ),
                       ),
                     ],
@@ -261,7 +308,10 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                               WidgetStateProperty.all(Colors.transparent),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (v) => setState(() => enableAutoPurge = v),
+                          onChanged: (v) {
+                            setState(() => enableAutoPurge = v);
+                            _handlePurge(isManual: false); 
+                          },
                         ),
                       ),
                     ],
@@ -290,15 +340,29 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                           ],
                         ),
                         Slider(
-                          value: retentionDays,
-                          min: 7,
-                          max: 365,
+                          value: _currentStep.toDouble(),
+                          min: 0,
+                          max: 4,
                           divisions: 4,
                           activeColor: const Color(0xFF1565C0),
                           inactiveColor: Colors.grey.shade300,
-                          onChanged: enableAutoPurge
-                              ? (v) => setState(() => retentionDays = v)
-                              : null,
+                          onChanged: enableAutoPurge ? (v) {
+                            /* double snappedValue;
+                            if (v < 90) snappedValue = 7;
+                            else if (v < 270) snappedValue = 180;
+                            else snappedValue = 365;
+
+                            setState(() => retentionDays = snappedValue);
+                            _handlePurge(isManual: false);
+                          } : null,*/
+                          setState(() {
+                              _currentStep = v.toInt();
+                            });
+                          } : null,
+                          onChangeEnd: (v) {
+                            // Only trigger API call when user releases the slider
+                            _handlePurge(isManual: false);
+                          },
                         ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

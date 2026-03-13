@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_mail import Mail
 
 # Import Blueprints instead of whole files
 from login import login_bp
@@ -15,11 +16,28 @@ from sa_dashboard import sa_dashboard_bp
 from sa_user import sa_user_bp
 from sa_log import sa_log_bp
 from sa_changepsw import sa_changepsw_bp
+from forgotpsw import forgot_password_bp
 from flask import send_from_directory
 import os
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
+
+# Mail configuration (Gmail or Microsoft - set MAIL_USE=gmail or microsoft)
+_mail_provider = (os.getenv('MAIL_USE', 'gmail') or 'gmail').lower()
+if _mail_provider == 'microsoft':
+    app.config['MAIL_SERVER'] = os.getenv('MAIL_MICROSOFT_SERVER', 'smtp.office365.com')
+    app.config['MAIL_PORT'] = int(os.getenv('MAIL_MICROSOFT_PORT', 587))
+    app.config['MAIL_USERNAME'] = os.getenv('MAIL_MICROSOFT_USERNAME', '')
+    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_MICROSOFT_PASSWORD', '')
+else:
+    app.config['MAIL_SERVER'] = os.getenv('MAIL_GMAIL_SERVER', 'smtp.gmail.com')
+    app.config['MAIL_PORT'] = int(os.getenv('MAIL_GMAIL_PORT', 587))
+    app.config['MAIL_USERNAME'] = os.getenv('MAIL_GMAIL_USERNAME', '')
+    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_GMAIL_PASSWORD', '')
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
+mail = Mail(app)
 
 # Register routes from other files
 app.register_blueprint(login_bp)
@@ -35,6 +53,7 @@ app.register_blueprint(sa_dashboard_bp)
 app.register_blueprint(sa_user_bp)
 app.register_blueprint(sa_log_bp)
 app.register_blueprint(sa_changepsw_bp)
+app.register_blueprint(forgot_password_bp)
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):

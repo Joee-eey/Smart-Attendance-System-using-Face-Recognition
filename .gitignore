@@ -37,3 +37,7 @@ __pycache__/
 
 # Python virtual environment
 venv/
+
+# Google API Secrets
+backend/token.json
+backend/credentials.json

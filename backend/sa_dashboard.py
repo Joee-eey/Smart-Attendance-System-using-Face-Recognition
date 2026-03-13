@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 import mysql.connector
-import hashlib
 from flask_bcrypt import Bcrypt
 import os
+import re
 from dotenv import load_dotenv
 
 sa_dashboard_bp = Blueprint('sa_dashboard', __name__)
@@ -26,9 +26,6 @@ def get_db_connection():
         database=db_config['database']
     )
 
-#def hash_password(password):
-    #return hashlib.sha256(password.encode()).hexdigest()
-
 def insert_log(conn, user_id, action_type, target_entity, target_id=None, description=None):
     cursor = conn.cursor()
     cursor.execute("""
@@ -37,16 +34,24 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     """, (user_id, action_type, target_entity, target_id, description))
     conn.commit()
     cursor.close()
-    
-    
 
-
-bcrypt = Bcrypt()
+def is_strong_password(password: str) -> bool:
+    """At least 8 chars, digit, lower, upper, symbol."""
+    if len(password) < 8:
+        return False
+    if not re.search(r"[0-9]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", password):
+        return False
+    return True
 
 def hash_password(password: str) -> str:
     """Generate a bcrypt hash from the plain password."""
     return bcrypt.generate_password_hash(password).decode('utf-8')
-
 
 @sa_dashboard_bp.route("/sa/add", methods=["POST"])
 def add_superadmin():
@@ -60,14 +65,18 @@ def add_superadmin():
     # Validate required fields
     if not username or not email or not password or not user_id:
         return jsonify({"error": "Missing fields"}), 400
-
+    if not is_strong_password(password):
+        return jsonify({
+            "error": "Password must be at least 8 characters and include a digit, "
+                     "a lowercase letter, an uppercase letter, and a symbol."
+        }), 400
     # Hash the password safely
     try:
         hashed_password = hash_password(password)
     except Exception as e:
         print("Password hashing failed:", e)
         return jsonify({"error": "Failed to hash password"}), 500
-
+    
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
 
@@ -76,7 +85,7 @@ def add_superadmin():
         cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cursor.fetchone():
             return jsonify({"error": "Email already exists"}), 409
-
+        
         # Insert new Super Admin
         cursor.execute("""
             INSERT INTO users (username, email, password, role)
@@ -84,12 +93,12 @@ def add_superadmin():
         """, (username, email, hashed_password, role))
         db.commit()
         new_admin_id = cursor.lastrowid
-
+        
         # Get the admin name who is performing this action
         cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
         user_row = cursor.fetchone()
         admin_name = user_row['username'] if user_row else f"User ID {user_id}"
-
+        
         # Insert log
         insert_log(
             conn=db,
@@ -99,13 +108,10 @@ def add_superadmin():
             target_id=new_admin_id,
             description=f"{admin_name} added a new Super Admin: {username}"
         )
-
         return jsonify({"message": "Super Admin added successfully"}), 200
-
     except Exception as e:
         print("Database error:", e)
         return jsonify({"error": "Failed to add Super Admin"}), 500
-
     finally:
         cursor.close()
         db.close()

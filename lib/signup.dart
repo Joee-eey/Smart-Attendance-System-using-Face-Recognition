@@ -25,6 +25,15 @@ class _SignupPageState extends State<SignupPage> {
   bool _acceptedTerms = false;
   bool _obscurePassword = true;
 
+  bool _hasMinLength = false;
+  bool _hasDigit = false;
+  bool _hasLower = false;
+  bool _hasUpper = false;
+  bool _hasSymbol = false;
+  bool get _isPasswordStrong =>
+      _hasMinLength && _hasDigit && _hasLower && _hasUpper && _hasSymbol;
+
+
   Future<void> registerUser(
     String username,
     String email,
@@ -102,6 +111,26 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   @override
+    Widget _buildRequirementRow(String text, bool met) {
+    return Row(
+      children: [
+        Icon(
+          met ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          size: 16,
+          color: met ? const Color(0xFF00B38A) : Colors.grey,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: met ? const Color(0xFF00B38A) : Colors.black54,
+          ),
+        ),
+      ],
+    );
+  }
+  
   Widget build(BuildContext context) {
     final primary = Theme.of(context).primaryColor;
 
@@ -175,10 +204,11 @@ class _SignupPageState extends State<SignupPage> {
                 style: const TextStyle(color: Colors.black, fontSize: 15),
                 textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
-                  isDense: true, 
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
                   hintText: 'Password',
-                  hintStyle: TextStyle(color: Colors.grey),
+                  hintStyle: const TextStyle(color: Colors.grey),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -192,6 +222,30 @@ class _SignupPageState extends State<SignupPage> {
                     },
                   ),
                 ),
+                onChanged: (value) {
+                  setState(() {
+                    _hasMinLength = value.length >= 8;
+                    _hasDigit = RegExp(r'[0-9]').hasMatch(value);
+                    _hasLower = RegExp(r'[a-z]').hasMatch(value);
+                    _hasUpper = RegExp(r'[A-Z]').hasMatch(value);
+                    _hasSymbol = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Requirements block
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRequirementRow("At least 8 characters", _hasMinLength),
+                  _buildRequirementRow("Contains a digit", _hasDigit),
+                  _buildRequirementRow("Contains a lowercase letter", _hasLower),
+                  _buildRequirementRow("Contains an uppercase letter", _hasUpper),
+                  _buildRequirementRow("Contains a symbol", _hasSymbol),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -224,6 +278,20 @@ class _SignupPageState extends State<SignupPage> {
                             );
                           }
                         : () {
+                          if (!_isPasswordStrong) {
+                            _showAnimatedDialog(
+                              context,
+                              icon: Icons.error_outline_rounded,
+                              iconColor: const Color(0xFFEA324C),
+                              title: "Weak Password",
+                              message:
+                                  "Password must be at least 8 characters and include a digit, "
+                                  "a lowercase letter, an uppercase letter, and a symbol.",
+                              buttonText: "OK",
+                              onPressed: () => Navigator.of(context).pop(),
+                            );
+                            return;
+                          }
                             setState(() => _isLoading = true);
                             registerUser(
                               _usernameController.text.trim(),

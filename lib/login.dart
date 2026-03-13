@@ -375,7 +375,11 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
     final primary = Theme.of(context).primaryColor;
+
+    final showSSO =
+      authProvider.googleSSOEnabled || authProvider.microsoftSSOEnabled;
 
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -545,6 +549,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
 
+          if (showSSO) ...[
             const SizedBox(height: 18),
 
             Row(
@@ -570,56 +575,33 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Google Button
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            handleGoogleSignIn(context);
-                          },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.transparent),
-                      backgroundColor: const Color(0xFFF7F8FA),
-                      shape: const CircleBorder(),
-                      padding: EdgeInsets.zero,
-                    ),
+                if (authProvider.googleSSOEnabled)
+                  GestureDetector(
+                    onTap: () => handleGoogleSignIn(context),
                     child: Image.asset(
                       'assets/images/google.png',
                       width: 20,
                       height: 20,
                     ),
                   ),
-                ),
 
+                if (authProvider.googleSSOEnabled && 
+                  authProvider.microsoftSSOEnabled)
                 const SizedBox(width: 20),
 
                 // Microsoft Button
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            handleMicrosoftSignIn(context);
-                          },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.transparent),
-                      backgroundColor: const Color(0xFFF7F8FA),
-                      shape: const CircleBorder(),
-                      padding: EdgeInsets.zero,
-                    ),
+                if (authProvider.microsoftSSOEnabled)
+                  GestureDetector(
+                    onTap: () => handleMicrosoftSignIn(context),
                     child: Image.asset(
                       'assets/images/Microsoft.png',
                       width: 20,
                       height: 20,
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: 50),
 

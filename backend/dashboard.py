@@ -27,7 +27,6 @@ def get_db_connection():
         database=db_config['database']
     )
 
-
 def insert_log(conn, user_id, action_type, target_entity, target_id=None, description=None):
     cursor = conn.cursor()
     cursor.execute("""
@@ -72,6 +71,14 @@ def handle_subjects():
             if not folder_name or not user_id:
                 return jsonify({'message': 'Folder name and user_id are required'}), 400
 
+            # REMARK: Prevent duplicate folder names per lecturer (Lecturer 1 cannot have two "Math 101", but Lecturer 2 can create "Math 101")
+            cursor.execute(
+                "SELECT id FROM subjects WHERE lecturer_id = %s AND LOWER(TRIM(name)) = LOWER(TRIM(%s))",
+                (user_id, folder_name),
+            )
+            if cursor.fetchone():
+                return jsonify({'message': 'You already have a folder with this name. Please use a different name.'}), 409
+            
             # Generate random code
             clean_name = folder_name.replace(" ", "")[:3].upper()
             if len(clean_name) < 3:
@@ -161,6 +168,14 @@ def handle_subject_files(subject_id):
             if not user_id:
                 return jsonify({'message': 'User ID is required'}), 400
 
+            # REMARK: Prevent duplicate schedule times in the same subject
+            cursor.execute(
+                "SELECT id FROM classes WHERE subject_id = %s AND LOWER(TRIM(schedule)) = LOWER(TRIM(%s))",
+                (subject_id, file_name),
+            )
+            if cursor.fetchone():
+                return jsonify({'message': 'This subject already has a schedule with this time. Please use a different time or day.'}), 409
+            
             # Insert file
             query = """
                 INSERT INTO classes (subject_id, schedule, created_at) 
@@ -241,6 +256,14 @@ def update_subject(subject_id):
         if not new_name or not user_id:
             return jsonify({'message': 'Name and user_id are required'}), 400
         
+        # REMARK: Prevent duplicate folder names per lecturer when renaming
+        cursor.execute(
+            "SELECT id FROM subjects WHERE lecturer_id = %s AND id != %s AND LOWER(TRIM(name)) = LOWER(TRIM(%s))",
+            (user_id, subject_id, new_name),
+        )
+        if cursor.fetchone():
+            return jsonify({'message': 'You already have a folder with this name. Please use a different name.'}), 409
+        
         image_url = None
         if image_file:
             if not os.path.exists('uploads'):
@@ -311,13 +334,24 @@ def update_class(class_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # Get old name for logging
-        cursor.execute("SELECT schedule FROM classes WHERE id = %s", (class_id,))
+        ## Get old name for logging
+        # cursor.execute("SELECT schedule FROM classes WHERE id = %s", (class_id,))
+        # Get class info (subject_id for duplicate check, schedule for logging)
+        cursor.execute("SELECT subject_id, schedule FROM classes WHERE id = %s", (class_id,))
         file = cursor.fetchone()
         if not file:
             return jsonify({'message': 'File not found'}), 404
 
+        subject_id = file['subject_id']
         old_name = file['schedule']
+
+        # REMARK: Prevent duplicate schedule times in the same subject when renaming
+        cursor.execute(
+            "SELECT id FROM classes WHERE subject_id = %s AND id != %s AND LOWER(TRIM(schedule)) = LOWER(TRIM(%s))",
+            (subject_id, class_id, new_name),
+        )
+        if cursor.fetchone():
+            return jsonify({'message': 'This subject already has a schedule with this time. Please use a different time or day.'}), 409
 
         # Update file name
         cursor.execute("UPDATE classes SET schedule = %s WHERE id = %s", (new_name, class_id))
@@ -354,6 +388,8 @@ def delete_subject(subject_id):
     conn = None
     try:
         user_id = request.args.get('user_id', type=int)
+        if not user_id:
+            return jsonify({'message': 'user_id is required'}), 400
         print(f"Received DELETE request for Subject ID: {subject_id} by User ID: {user_id}")
 
         conn = get_db_connection()
@@ -367,9 +403,19 @@ def delete_subject(subject_id):
 
         folder_name = folder['name']
 
-        # Delete all files in folder
+        ## Delete all files in folder
+        # REMARK: Delete in order to satisfy foreign keys:
+        # 1) attendance -> class_id (via classes)
+        # 2) classes -> subject_id
+        # 3) enrollments -> subject_id
+        # 4) subjects
+        cursor.execute(
+            "DELETE a FROM attendance a JOIN classes c ON a.class_id = c.id WHERE c.subject_id = %s",
+            (subject_id,),
+        )
         cursor.execute("DELETE FROM classes WHERE subject_id = %s", (subject_id,))
-        # Delete folder
+        ## Delete folder
+        cursor.execute("DELETE FROM enrollments WHERE subject_id = %s", (subject_id,))
         cursor.execute("DELETE FROM subjects WHERE id = %s", (subject_id,))
         conn.commit()
 
