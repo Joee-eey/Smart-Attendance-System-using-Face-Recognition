@@ -9,14 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 
-// void main() {
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
-//   runApp(const SuperAdminDashboardApp());
-// }
-
 class SuperAdminDashboardApp extends StatelessWidget {
   const SuperAdminDashboardApp({super.key});
 
@@ -99,18 +91,19 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
         setState(() {
           _username = data['username'] ?? "Unknown";
           _email = data['email'] ?? "Unknown";
-          
-          if (data['image_url'] != null && data['image_url'].toString().isNotEmpty) {
+
+          if (data['image_url'] != null &&
+              data['image_url'].toString().isNotEmpty) {
             String rawUrl = data['image_url'];
-            String absoluteUrl = rawUrl.startsWith('http') 
-                ? rawUrl 
-                : '$baseUrl/$rawUrl';
-            
-            _profileImageUrl = "$absoluteUrl?t=${DateTime.now().millisecondsSinceEpoch}";
+            String absoluteUrl =
+                rawUrl.startsWith('http') ? rawUrl : '$baseUrl/$rawUrl';
+
+            _profileImageUrl =
+                "$absoluteUrl?t=${DateTime.now().millisecondsSinceEpoch}";
           } else {
             _profileImageUrl = null;
           }
-          
+
           _isUserLoading = false;
           _selectedImage = null;
         });
@@ -127,7 +120,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 
     if (pickedFile != null) {
       File imageFile = File(pickedFile.path);
-      // We don't set _selectedImage here to avoid "flicker" 
+      // We don't set _selectedImage here to avoid "flicker"
       // if the upload fails. We upload first.
       await _uploadPhoto(imageFile);
     }
@@ -142,19 +135,20 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
       var request = http.MultipartRequest(
           'POST', Uri.parse('$baseUrl/users/upload_photo'));
       request.fields['user_id'] = userId.toString();
-      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      request.files
+          .add(await http.MultipartFile.fromPath('image', imageFile.path));
 
       var response = await request.send();
       if (response.statusCode == 200) {
         final resBody = await response.stream.bytesToString();
         final data = jsonDecode(resBody);
-        
+
         // Success: Clear temporary file and refresh profile from server
         setState(() {
-          _selectedImage = null; 
+          _selectedImage = null;
         });
         await _fetchUserProfile(userId!);
-        
+
         log("Photo uploaded and profile refreshed");
       }
     } catch (e) {
@@ -197,19 +191,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     );
   }
 
-  /* Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      File imageFile = File(pickedFile.path);
-      setState(() {
-        _selectedImage = imageFile;
-      });
-      await _uploadPhoto(imageFile);
-    }
-  }*/
-
   void _viewPhoto() {
     if (_profileImageUrl == null && _selectedImage == null) return;
 
@@ -243,36 +224,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
       ),
     );
   }
-
-  /* Future<void> _uploadPhoto(File imageFile) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId;
-    final baseUrl = dotenv.env['BASE_URL']!;
-
-    try {
-      var request = http.MultipartRequest(
-          'POST', Uri.parse('$baseUrl/users/upload_photo'));
-      request.fields['user_id'] = userId.toString();
-      request.files
-          .add(await http.MultipartFile.fromPath('image', imageFile.path));
-
-      var response = await request.send();
-      if (response.statusCode == 200) {
-        final resBody = await response.stream.bytesToString();
-        final data = jsonDecode(resBody);
-        _fetchUserProfile(userId!);
-
-        setState(() {
-          _profileImageUrl = data['image_url'].startsWith('http')
-              ? data['image_url']
-              : '${dotenv.env['BASE_URL']!}/${data['image_url']}';
-          _selectedImage = null; // clear selected image after updating URL
-        });
-      }
-    } catch (e) {
-      log("Upload error: $e");
-    }
-  }*/
 
   Future<void> _fetchUserStats() async {
     try {
@@ -339,39 +290,98 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     }
   }
 
-  /* Future<void> _fetchUserProfile(int userId) async {
-    try {
-      final baseUrl = dotenv.env['BASE_URL']!;
-      final response = await http.get(Uri.parse('$baseUrl/sa/user/$userId'));
+  void _handleSignOut() async {
+    bool? confirmSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          insetPadding: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFFF84F31),
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "Sign Out?",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Are you sure you want to sign out?\nYou will need to login again.",
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text("Cancel"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF84F31),
+                        ),
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text(
+                          "Sign Out",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    )
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _username = data['username'];
-          _email = data['email'];
-          _profileImageUrl = data['image_url'] != null
-              ? (data['image_url'].startsWith('http')
-                  ? data['image_url']
-                  : '$baseUrl/${data['image_url']}')
-              : null;
-          _isUserLoading = false;
-        });
-      } else {
-        setState(() {
-          _username = "Unknown";
-          _email = "Unknown";
-          _profileImageUrl = null;
-          _isUserLoading = false;
-        });
+    if (confirmSignOut == true) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.userId;
+
+      try {
+        final baseUrl = dotenv.env['BASE_URL']!;
+        final response = await http.post(
+          Uri.parse('$baseUrl/sa/logout'),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"user_id": userId}),
+        );
+
+        if (response.statusCode == 200) {
+          log("Logout logged successfully");
+        }
+      } catch (e) {
+        log("Error logging logout: $e");
       }
-    } catch (e) {
-      log("Error fetching user profile: $e");
-      setState(() {
-        _isUserLoading = false;
-        _profileImageUrl = null;
-      });
+
+      await authProvider.signOut();
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          "/sa/login",
+          (route) => false,
+        );
+      }
     }
-  }*/
+  }
 
 // Profile Dialog
   Future<void> _showProfileDialog() async {
@@ -474,8 +484,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         GestureDetector(
-                          onTap:
-                              _showPhotoOptions,
+                          onTap: _showPhotoOptions,
                           child: const Text(
                             "Update Photo",
                             style: TextStyle(
@@ -583,31 +592,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                       ),
-                      onPressed: () async {
-                        final authProvider =
-                            Provider.of<AuthProvider>(context, listen: false);
-                        final userId = authProvider.userId;
-
-                        try {
-                          final baseUrl = dotenv.env['BASE_URL']!;
-                          final response = await http.post(
-                            Uri.parse('$baseUrl/sa/logout'),
-                            headers: {"Content-Type": "application/json"},
-                            body: jsonEncode({"user_id": userId}),
-                          );
-
-                          if (response.statusCode == 200) {
-                            log("Logout logged successfully");
-                          } else {
-                            log("Failed to log logout: ${response.body}");
-                          }
-                        } catch (e) {
-                          log("Error logging logout: $e");
-                        }
-                        await authProvider.signOut();
-                        Navigator.pushReplacementNamed(
-                            context, "/sa/login"); // or your login page
-                      },
+                      onPressed: _handleSignOut,
                       child: const Text(
                         "Sign Out",
                         style: TextStyle(
@@ -625,8 +610,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   Future<bool> _addNewAdmin(String name, String email, String password) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
-      final url = Uri.parse(
-          '$baseUrl/sa/add'); // Backend endpoint to handle adding superadmin
+      final url = Uri.parse('$baseUrl/sa/add');
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.userId;
@@ -848,9 +832,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    ImageProvider? avatarImage = (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
-        ? NetworkImage(_profileImageUrl!)
-        : null;
+    ImageProvider? avatarImage =
+        (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+            ? NetworkImage(_profileImageUrl!)
+            : null;
 
     return Scaffold(
       appBar: AppBar(
