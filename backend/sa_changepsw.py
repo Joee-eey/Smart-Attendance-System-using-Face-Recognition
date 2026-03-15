@@ -1,11 +1,8 @@
 from flask import Blueprint, request, jsonify
 import mysql.connector
-import hashlib
 from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
-from flask import request, jsonify
-from flask_bcrypt import Bcrypt
 
 sa_changepsw_bp = Blueprint('sa_changepsw', __name__)
 load_dotenv()

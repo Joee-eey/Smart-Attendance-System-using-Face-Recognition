@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
-import 'dart:developer';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
+import 'package:userinterface/forgotpsw.dart';
 
 // void main() {
 //   runApp(const MyApp());
@@ -51,39 +51,79 @@ class _SuperAdminChangePasswordPageState
   bool _newObscure = true;
   bool _confirmObscure = true;
 
+  // Password validation flags
+  bool _hasMinLength = false;
+  bool _hasDigit = false;
+  bool _hasLower = false;
+  bool _hasUpper = false;
+  bool _hasSymbol = false;
+
+  bool get _isPasswordStrong =>
+      _hasMinLength && _hasDigit && _hasLower && _hasUpper && _hasSymbol;
+
+  @override
+  void initState() {
+    super.initState();
+    _newPasswordController.addListener(_validatePassword);
+  }
+
+  void _validatePassword() {
+    final value = _newPasswordController.text;
+    setState(() {
+      _hasMinLength = value.length >= 8;
+      _hasDigit = RegExp(r'[0-9]').hasMatch(value);
+      _hasLower = RegExp(r'[a-z]').hasMatch(value);
+      _hasUpper = RegExp(r'[A-Z]').hasMatch(value);
+      _hasSymbol = RegExp(r'[^A-Za-z0-9]').hasMatch(value);
+    });
+  }
+
+  Widget _buildRequirementRow(String text, bool met) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            met ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+            size: 16,
+            color: met ? const Color(0xFF00B38A) : Colors.grey,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: met ? const Color(0xFF00B38A) : Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _updatePassword() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
 
-    // Validate new password length
-    if (_newPasswordController.text.length < 6) {
-      if (mounted) {
-        _showAnimatedDialog(
-          context,
-          icon: Icons.warning_rounded,
-          iconColor: Colors.red,
-          title: "Weak Password",
-          message: "Password must be at least 6 characters long.",
-          buttonText: "OK",
-          onPressed: () => Navigator.of(context).pop(),
-        );
-      }
+    // 1. Check if fields are empty
+    if (_currentPasswordController.text.isEmpty ||
+        _newPasswordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
+      _showErrorDialog("Error", "Please fill in all fields.");
       return;
     }
 
-    // Check if new password and confirm password match
+    // 2. Check if new password matches confirm password
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      if (mounted) {
-        _showAnimatedDialog(
-          context,
-          icon: Icons.warning_rounded,
-          iconColor: Colors.red,
-          title: "Passwords Do Not Match",
-          message: "The new password and confirm password must be identical.",
-          buttonText: "OK",
-          onPressed: () => Navigator.of(context).pop(),
-        );
-      }
+      _showErrorDialog("Passwords Do Not Match",
+          "The new password and confirm password must be identical.");
+      return;
+    }
+
+    // 3. Check password strength (8 characters + complexity)
+    if (!_isPasswordStrong) {
+      _showErrorDialog("Weak Password",
+          "Password must be at least 8 characters and include a digit, a lowercase letter, an uppercase letter, and a symbol.");
       return;
     }
 
@@ -123,30 +163,24 @@ class _SuperAdminChangePasswordPageState
           );
         }
       } else {
-        if (mounted) {
-          _showAnimatedDialog(
-            context,
-            icon: Icons.error_rounded,
-            iconColor: Colors.red,
-            title: "Error",
-            message: responseData['message'] ?? "Current password is incorrect",
-            buttonText: "OK",
-            onPressed: () => Navigator.of(context).pop(),
-          );
-        }
+        _showErrorDialog("Error", responseData['message'] ?? "Current password is incorrect");
       }
     } catch (e) {
-      if (mounted) {
-        _showAnimatedDialog(
-          context,
-          icon: Icons.error_outline_rounded,
-          iconColor: Colors.red,
-          title: "Connection Failed",
-          message: "Failed to connect to server",
-          buttonText: "OK",
-          onPressed: () => Navigator.of(context).pop(),
-        );
-      }
+      _showErrorDialog("Connection Failed", "Failed to connect to server");
+    }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    if (mounted) {
+      _showAnimatedDialog(
+        context,
+        icon: Icons.error_rounded,
+        iconColor: Colors.red,
+        title: title,
+        message: message,
+        buttonText: "OK",
+        onPressed: () => Navigator.of(context).pop(),
+      );
     }
   }
 
@@ -192,7 +226,7 @@ class _SuperAdminChangePasswordPageState
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -202,7 +236,7 @@ class _SuperAdminChangePasswordPageState
             onPressed: () => Navigator.pop(context),
           ),
         ),
-        body: Padding(
+        body: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -222,12 +256,21 @@ class _SuperAdminChangePasswordPageState
                 controller: _newPasswordController,
                 obscureText: _newObscure,
                 decoration: buildPasswordDecoration(
-                  "New Password (at least 6 characters)",
+                  "New Password",
                   _newObscure,
                   () => setState(() => _newObscure = !_newObscure),
                 ),
               ),
               const SizedBox(height: 15),
+
+              // Requirements UI
+              _buildRequirementRow("At least 8 characters", _hasMinLength),
+              _buildRequirementRow("Contains a digit", _hasDigit),
+              _buildRequirementRow("Contains a lowercase letter", _hasLower),
+              _buildRequirementRow("Contains an uppercase letter", _hasUpper),
+              _buildRequirementRow("Contains a symbol", _hasSymbol),
+              const SizedBox(height: 15),
+
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _confirmObscure,
@@ -241,7 +284,15 @@ class _SuperAdminChangePasswordPageState
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: () => log("Navigate to Forgot Password Page"),
+                  onTap: () {
+                    // Navigates to the Forgot Password Page
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ForgotPassword(),
+                      ),
+                    );
+                  },
                   child: const Text(
                     "Forgot Password?",
                     style: TextStyle(

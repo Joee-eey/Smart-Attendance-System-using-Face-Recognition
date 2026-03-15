@@ -45,29 +45,6 @@ class _AttendanceState extends State<Attendance> {
     }
   }
 
-  void _notifyLecturer(int classId) {
-    log("Reminder: No attendance records found for Class ID: $classId");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-            "Reminder: Attendance has not been taken for this class yet."),
-        backgroundColor: const Color(0xFF1565C0),
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: "Take Now",
-          textColor: Colors.white,
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => ScanAttendance(classId: classId)),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   void _showFilterPopup() {
     final RenderBox renderBox =
         _filterKey.currentContext!.findRenderObject() as RenderBox;
@@ -378,9 +355,6 @@ class _AttendanceState extends State<Attendance> {
           isLoading = false;
           _applySortFilter();
         });
-        if (attendanceList.isEmpty) {
-          _notifyLecturer(classId);
-        }
       } else {
         throw Exception('Failed to load data');
       }
