@@ -6,12 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
 
-/*void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  runApp(const SuperAdminSettingsApp());
-}*/
-
 class SuperAdminSettingsApp extends StatelessWidget {
   const SuperAdminSettingsApp({super.key});
 
@@ -45,11 +39,7 @@ class SuperAdminSettingsPage extends StatefulWidget {
 }
 
 class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
-  // bool googleSSO = true;
-  // bool microsoftSSO = false;
-
   bool enableAutoPurge = true;
-  // double retentionDays = 30;
 
   // Define the specific allowed values
   final List<int> _retentionOptions = [7, 96, 180, 275, 365];
@@ -178,7 +168,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
           children: [
             const SizedBox(height: 50),
 
-            // ================= Authentication =================
+            // Authentication
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -207,17 +197,6 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                       Transform.scale(
                         scale: 0.8,
                         child: Switch(
-                          /*value: googleSSO,
-                          activeThumbColor: const Color(0xFF1565C0),
-                          activeTrackColor: const Color(0x331565C0),
-                          inactiveThumbColor: Colors.grey.shade400,
-                          inactiveTrackColor: Colors.grey.shade300,
-                          splashRadius: 0,
-                          trackOutlineColor:
-                              WidgetStateProperty.all(Colors.transparent),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (v) => setState(() => googleSSO = v),*/
                           value: authProvider.googleSSOEnabled,
                           activeThumbColor: const Color(0xFF1565C0),
                           onChanged: (v) => authProvider.setGoogleSSO(v),
@@ -233,17 +212,6 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                       Transform.scale(
                         scale: 0.8,
                         child: Switch(
-                          /* value: microsoftSSO,
-                          activeThumbColor: const Color(0xFF1565C0),
-                          activeTrackColor: const Color(0x331565C0),
-                          inactiveThumbColor: Colors.grey.shade400,
-                          inactiveTrackColor: Colors.grey.shade300,
-                          splashRadius: 0,
-                          trackOutlineColor:
-                              WidgetStateProperty.all(Colors.transparent),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          onChanged: (v) => setState(() => microsoftSSO = v),*/
                           value: authProvider.microsoftSSOEnabled,
                           activeThumbColor: const Color(0xFF1565C0),
                           onChanged: (v) => authProvider.setMicrosoftSSO(v),
@@ -257,7 +225,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
 
             const SizedBox(height: 16),
 
-            // ================= Security & Privacy =================
+            // Security & Privacy
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -347,14 +315,6 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                           activeColor: const Color(0xFF1565C0),
                           inactiveColor: Colors.grey.shade300,
                           onChanged: enableAutoPurge ? (v) {
-                            /* double snappedValue;
-                            if (v < 90) snappedValue = 7;
-                            else if (v < 270) snappedValue = 180;
-                            else snappedValue = 365;
-
-                            setState(() => retentionDays = snappedValue);
-                            _handlePurge(isManual: false);
-                          } : null,*/
                           setState(() {
                               _currentStep = v.toInt();
                             });

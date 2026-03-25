@@ -36,7 +36,7 @@ class NotificationService {
       await androidPlugin.requestNotificationsPermission();
     }
 
-    // REMARK: Required on some Android devices for exact alarms.
+    // Required on some Android devices for exact alarms.
     await checkPermissions();
   }
 
@@ -46,9 +46,7 @@ class NotificationService {
     }
   }
 
-  /*static Future<void> scheduleAttendanceReminder({
-    required int classId,*/
-  // REMARK: We use per-session (date-specific) notifications instead of repeating weekly,
+  // We use per-session (date-specific) notifications instead of repeating weekly,
   // because "10 minutes before class ends IF attendance not taken" must be cancellable
   // for only that specific session.
   static Future<void> scheduleAttendanceStart({
@@ -83,13 +81,9 @@ class NotificationService {
     required String className,
     required DateTime scheduledTime,
   }) async {
-    // log("SERVICE: Scheduling $className for ${scheduledTime.toLocal()}");
     log("SERVICE: Scheduling PRE-END $className for ${scheduledTime.toLocal()}");
 
     await _notificationsPlugin.zonedSchedule(
-      /* classId,
-      'Take Attendance! 🔔',
-      'Your class "$className" has started.',*/
       notificationId,
       'Attendance Reminder',
       '10 minutes left for "$className". Attendance not taken yet.',
@@ -103,11 +97,9 @@ class NotificationService {
           icon: '@mipmap/ic_launcher',
         ),
       ),
-      // androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      // matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
   }
 
@@ -120,7 +112,6 @@ class NotificationService {
     );
 
     await _notificationsPlugin.show(
-      // 0, 
       DateTime.now().millisecondsSinceEpoch.remainder(2000000000),
       title,
       body,
@@ -128,27 +119,12 @@ class NotificationService {
     );
   }
 
-  static Future<void> scheduleTestNotification() async {
-    await _notificationsPlugin.show(
-      999,
-      'Instant Check 🔔',
-      'If you see this, your Samsung is allowing notifications!',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'attendance_reminders_channel',
-          'Attendance Alerts',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-      ),
-    );
-  }
   static int buildSessionNotificationId({
     required int classId,
     required DateTime sessionDate,
     required int type, // 1 = start, 2 = preEnd
   }) {
-    // REMARK: Must be < 2,147,483,647 (Android int32).
+    // Must be < 2,147,483,647 (Android int32).
     final mmdd = (sessionDate.month * 100) + sessionDate.day; // 101..1231
     final base = (classId % 10000) * 100000; // 0..999,900,000
     return base + (type * 10000) + (mmdd * 10);

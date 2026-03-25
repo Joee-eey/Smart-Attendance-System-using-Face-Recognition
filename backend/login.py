@@ -87,10 +87,6 @@ def login():
         if not user:
             return jsonify({'message': 'Email not registered. Please sign up first.'}), 404
 
-        # Prevent password login for social-auth accounts.
-        # if (user.get('auth_provider') or '').lower() == 'google':
-            # return jsonify({'message': 'This account uses Google Sign-In. Please log in with Google.'}), 403
-
         if bcrypt.check_password_hash(user['password'], password):
             insert_log(
                 conn=conn,

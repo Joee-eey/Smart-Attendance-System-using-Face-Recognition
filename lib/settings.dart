@@ -23,8 +23,6 @@ class AccountSettingsPage extends StatefulWidget {
 
 class _AccountSettingsPageState extends State<AccountSettingsPage> {
   bool attendanceReminders = true;
-  // String _username = "";
-  // String _email = "";
   String? _profileImageUrl;
   bool _isProfileLoading = true;
   late TextEditingController _usernameController;
@@ -57,23 +55,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       //await _setupAttendanceReminder();
     }
   }
-
-  // Future<void> _toggleReminders(bool value) async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   await prefs.setBool('reminders_enabled', value);
-    
-  //   setState(() {
-  //     attendanceReminders = value;
-  //   });
-
-  //   if (value) {
-  //     await _setupAttendanceReminder();
-  //   } else {
-  //     log("Attendance reminders deactivated");
-  //     await NotificationService.cancelAll();
-  //   }
-  // }
-
   Future<void> _setupAttendanceReminder() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final userId = authProvider.userId;
@@ -82,39 +63,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
 
     log("REAL-SYNC: Fetching schedule for Lecturer ID: $userId");
 
-    /* try {
-      final response = await http.get(Uri.parse('$baseUrl/lecturer/$userId/schedule'));
-
-      if (response.statusCode == 200) {
-        List classes = jsonDecode(response.body);
-        await NotificationService.cancelAll();
-        int scheduledCount = 0;
-
-        for (var cls in classes) {
-          DateTime classTime = _parseClassTime(cls['start_time']);
-          DateTime now = DateTime.now();
-
-          // Future classes (Set the Alarm)
-          if (classTime.isAfter(now)) {
-            await NotificationService.scheduleAttendanceReminder(
-              classId: cls['id'],
-              className: cls['course_name'],
-              scheduledTime: classTime,
-            );
-            scheduledCount++;
-          } 
-          // Just started classes (Notify immediately)
-          else if (now.difference(classTime).inMinutes <= 30 && now.difference(classTime).inMinutes >= 0) {
-            await NotificationService.showInstantNotification(
-              "Class Started!",
-              "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!"
-            );
-            scheduledCount++;
-          }
-        }
-        log("REAL-SYNC: Successfully synced $scheduledCount reminders.");
-      }
-    } catch (e) { log("REAL-SYNC: Failed -> $e"); }*/
     await AttendanceReminderSync.sync(baseUrl: baseUrl, userId: userId);
   }
 
@@ -263,16 +211,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
     );
   }
 
-  // void _handleSignOut() async {
-  //   await Provider.of<AuthProvider>(context, listen: false).signOut();
-
-  //   Navigator.pushAndRemoveUntil(
-  //     context,
-  //     MaterialPageRoute(builder: (_) => const HomePage()),
-  //     (_) => false,
-  //   );
-  // }
-
   void _handleSignOut() async {
     bool? confirmSignOut = await showDialog<bool>(
       context: context,
@@ -385,8 +323,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       }
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -682,24 +618,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                   ],
                 ),
               ),
-
-              /* // Test Send Reminder Alert
-              if (attendanceReminders) 
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () async {
-                      await NotificationService.scheduleTestNotification();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Notification scheduled for 5 seconds from now...")),
-                      );
-                    },
-                    icon: const Icon(Icons.notification_important_rounded, size: 18),
-                    label: const Text("Send Test Alert"),
-                    style: TextButton.styleFrom(foregroundColor: const Color(0xFF1565C0)),
-                  ),
-                ), 
-                // End */
                 
               const SizedBox(height: 15),
               SizedBox(

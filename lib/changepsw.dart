@@ -7,29 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 import 'package:userinterface/forgotpsw.dart';
 
-/*void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ));
-
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: ChangePasswordPage(),
-    );
-  }
-}*/
-
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});
 
@@ -286,7 +263,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  // onTap: () => log("Navigate to Forgot Password Page"),
                   onTap: () {
                   // Navigate to the ForgotPassword page
                   Navigator.push(

@@ -71,7 +71,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   CameraController? _controller;
   int _currentPreviewIndex = 0;
 
-  // Store multiple captured/picked images (same logic as scanattendance)
+  // Store multiple captured/picked images
   List<XFile> _capturedImages = [];
 
   double _currentZoom = 1.0;
@@ -142,20 +142,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     await _initializeCamera(widget.cameras[currentCameraIndex]);
   }
 
-  /*void _capturePhoto() async {
-    if (!_isCameraReady || _controller == null) return;
-
-    try {
-      final XFile image = await _controller!.takePicture();
-      setState(() {
-        _capturedImages.add(image);
-        _currentPreviewIndex = _capturedImages.length - 1;
-        _isAddingPhoto = false;
-      });
-    } catch (e) {
-      debugPrint("Error capturing photo: $e");
-    }
-  }*/
   void _capturePhoto() async {
   if (!_isCameraReady || _controller == null) return;
 
@@ -190,35 +176,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
     }
   }
 
-  // void _pickSingleImage() async {
-  //   try {
-  //     final picker = ImagePicker();
-  //     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-  //     if (image != null && mounted) {
-  //       setState(() {
-  //         _capturedImage = image;
-  //       });
-  //     }
-  //   } catch (e) {
-  //     debugPrint("Error picking image: $e");
-  //   }
-  // }
-
-  /*void _pickMultipleImages() async {
-    try {
-      final picker = ImagePicker();
-      final List<XFile> images = await picker.pickMultiImage();
-
-      if (images.isNotEmpty && mounted) {
-        setState(() {
-          _capturedImages = images;
-          _currentPreviewIndex = 0;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error picking multiple images: $e");
-    }
-  }*/
   void _pickMultipleImages() async {
   try {
     final picker = ImagePicker();

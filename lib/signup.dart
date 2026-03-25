@@ -41,7 +41,6 @@ class _SignupPageState extends State<SignupPage> {
   ) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/signup');
-    //final url = Uri.parse('http://192.168.100.22:5001/signup');
 
     try {
       final response = await http.post(

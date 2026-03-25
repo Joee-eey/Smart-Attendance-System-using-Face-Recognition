@@ -33,37 +33,6 @@ def insert_log(conn, user_id, action_type, target_entity, target_id=None, descri
     """, (user_id, action_type, target_entity, target_id, description))
     conn.commit()
     cursor.close()
-    
-
-# @sa_user_bp.route("/sa/users", methods=["GET"])
-# def get_users():
-#     conn = get_db_connection()
-#     cursor = conn.cursor(dictionary=True)
-
-#     cursor.execute("""
-#         SELECT id, username, email, role, auth_provider
-#         FROM users
-#         ORDER BY username ASC
-#     """)
-    
-#     rows = cursor.fetchall()
-#     print("🟢 Rows fetched:", rows)
-
-#     cursor.close()
-#     conn.close()
-
-#     users = []
-#     for row in rows:
-#         users.append({
-#             "id":row["id"],
-#             "name": row["username"],
-#             "email": row["email"],
-#             "role": row["role"],
-#             "provider": row["auth_provider"]
-#         })
-
-#     return jsonify(users)
-
 
 @sa_user_bp.route("/sa/users", methods=["GET"])
 def get_users():

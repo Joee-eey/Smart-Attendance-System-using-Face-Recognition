@@ -116,20 +116,6 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey _filterKey = GlobalKey();
   String sortOrder = "Default";
-
-  // List<UserItem> logs = [
-  //   UserItem("New User", "Taylor Chen joined Cheese!", Icons.person_add_rounded,
-  //       "11 Jan 2026, 10:30:52 AM"),
-  //   UserItem("Edit", "Jordan Smith updated their folder contents.",
-  //       Icons.edit_rounded, "11 Jan 2026, 12:03:21 PM"),
-  //   UserItem("Delete", "Jordan Smith deletes an enrollment record.",
-  //       Icons.delete_rounded, "11 Jan 2026, 12:08:57 PM"),
-  //   UserItem("Created/Updated", "Jordan Smith created a new file.",
-  //       Icons.add_rounded, "11 Jan 2026, 12:12:40 PM"),
-  //   UserItem("Log in/Sign Out", "Alex Rivera logged in to Cheese!",
-  //       Icons.person_rounded, "13 Jan 2026, 16:42:36 PM"),
-  // ];
-
   List<UserItem> logs = [];
   List<UserItem> logsBackup = [];
   bool _isLoading = true;
@@ -424,12 +410,6 @@ class _SuperAdminLogsPageState extends State<SuperAdminLogsPage> {
           children: [
             _searchBar(),
             const SizedBox(height: 0),
-            // Expanded(
-            //   child: ListView.builder(
-            //     itemCount: logs.length,
-            //     itemBuilder: (context, index) => _userCard(logs[index]),
-            //   ),
-            // ),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())

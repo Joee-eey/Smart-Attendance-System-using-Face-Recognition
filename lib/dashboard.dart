@@ -98,22 +98,9 @@ class _DashboardPageState extends State<DashboardPage> {
         const weeksToScheduleAhead = 8;
 
         for (var cls in classes) {
-          // DateTime classTime = _parseClassTime(cls['start_time']);
-          // DateTime now = DateTime.now();
           final classId = cls['id'] as int;
           final className = (cls['course_name'] ?? 'Class').toString();
           final scheduleStr = (cls['start_time'] ?? '').toString();
-
-          /* if (classTime.isAfter(now)) {
-            await NotificationService.scheduleAttendanceReminder(
-              classId: cls['id'],
-              className: cls['course_name'],
-              scheduledTime: classTime,
-            );
-          } else if (now.difference(classTime).inMinutes <= 30 &&
-              now.difference(classTime).inMinutes >= 0) {
-            await NotificationService.showInstantNotification("Class Started!",
-                "Class ${cls['course_name']} started at ${cls['start_time']}. Take attendance now!");*/
           final spec = _parseScheduleSpec(scheduleStr);
           if (spec == null) continue;
 
@@ -185,8 +172,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  /*DateTime _parseClassTime(String timeStr) {
-    final now = DateTime.now();*/
   Future<bool> _isAttendanceTakenToday(String baseUrl, int classId) async {
     try {
       final resp =
@@ -296,13 +281,6 @@ class _DashboardPageState extends State<DashboardPage> {
     // Handles "08:30 AM" (preferred) and "08:30" (fallback).
     final v = s.trim();
     try {
-      /* final cleanTime = timeStr.split(' ')[0];
-      final parts = cleanTime.split(':');
-      return DateTime(now.year, now.month, now.day, int.parse(parts[0]),
-          int.parse(parts[1]));
-    } catch (e) {
-      return now.subtract(const Duration(days: 1));
-    }*/
     if (v.toLowerCase().contains("am") || v.toLowerCase().contains("pm")) {
         final dt = DateFormat('hh:mm a').parse(v);
         return TimeOfDay(hour: dt.hour, minute: dt.minute);
@@ -805,29 +783,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Future<void> createFolder(String name) async {
-  //   final baseUrl = dotenv.env['BASE_URL']!;
-  //   final url = Uri.parse('$baseUrl/subjects');
-
-  //   try {
-  //     log("Attempting to create folder: $name at $url");
-  //     final response = await http.post(
-  //       url,
-  //       headers: {"Content-Type": "application/json"},
-  //       body: jsonEncode({"name": name}),
-  //     );
-  //     log("Response status: ${response.statusCode}");
-  //     if (response.statusCode == 200 || response.statusCode == 201) {
-  //       log('Folder created successfully');
-  //       fetchFolders();
-  //     } else {
-  //       log('Failed to create folder: ${response.body}');
-  //     }
-  //   } catch (e) {
-  //     log('Error creating folder', error: e);
-  //   }
-  // }
-
   Future<void> _pickImage(StateSetter setDialogState) async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -840,17 +795,15 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Future<void> createFolder(String name, XFile? imageFile) async {
   Future<bool> createFolder(String name, XFile? imageFile) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects');
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.userId; // <-- get userId from provider
+    final userId = authProvider.userId; // get userId from provider
 
     if (userId == null) {
       log("User not logged in, cannot create folder");
-      // return;
       return false;
     }
 
@@ -901,7 +854,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Future<void> updateFolder(int id, String name, XFile? imageFile) async {
   Future<bool> updateFolder(int id, String name, XFile? imageFile) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/subjects/$id');
@@ -979,7 +931,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Future<void> createFile(int folderId, String name) async {
   Future<bool> createFile(int folderId, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1033,7 +984,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // Future<void> updateFile(Folder folder, int fileId, String name) async {
   Future<bool> updateFile(Folder folder, int fileId, String name) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1230,21 +1180,14 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         onPressed: () async {
                           if (nameController.text.isNotEmpty) {
-                            /*if (isEdit && folder != null) {
-                              if (folder.id != null) {
-                                await updateFolder(folder.id!,
-                                    nameController.text, _pickedFile);
-                              }*/
                             bool ok = false;
                             if (isEdit && folder != null && folder.id != null) {
                               ok = await updateFolder(folder.id!,
                                   nameController.text, _pickedFile);
                             } else {
-                              // await createFolder(
                               ok = await createFolder(
                                   nameController.text, _pickedFile);
                             }
-                            // if (mounted) Navigator.pop(context);
                             if (mounted && ok) Navigator.pop(context);
                           }
                         },
@@ -1429,39 +1372,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 _buildTimeField("Select End Time", endTimeController,
                     () => _selectTime(endTimeController)),
 
-                /*const SizedBox(height: 15),
-                SizedBox(
-                  width: double.infinity,
-                  height: 45,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1565C0),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () async {
-                      if (startTimeController.text.isNotEmpty &&
-                          endTimeController.text.isNotEmpty) {
-                        String combinedName =
-                            "${startTimeController.text} - ${endTimeController.text}";
-                        if (isEdit && file != null) {
-                          await updateFile(folder, file.id, combinedName);
-                        } else if (folder.id != null) {
-                          await createFile(folder.id!, combinedName);
-                        }
-                        if (mounted) Navigator.pop(context);
-                      }
-                    },
-                    child: Text(
-                      isEdit ? "Save Changes" : "Create",
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),*/
           const SizedBox(height: 12),
 
                     const Text(
@@ -1483,7 +1393,6 @@ class _DashboardPageState extends State<DashboardPage> {
                           selected: selected,
                           selectedColor: const Color(0xFFE3F2FD),
                           backgroundColor: Colors.white,
-                          // side: BorderSide(color: selected ? const Color(0xFF1565C0) : const Color(0xFFE0E0E0)),
                           labelStyle: TextStyle(
                             color: selected ? const Color(0xFF1565C0) : Colors.black87,
                             fontWeight: FontWeight.w600,

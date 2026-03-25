@@ -25,36 +25,6 @@ def get_db_connection():
         database=db_config['database']
     )
 
-# @sa_log_bp.route("/sa/logs", methods=["GET"])
-# def get_logs():
-#     try:
-#         conn = get_db_connection()
-#         cursor = conn.cursor(dictionary=True)
-
-#         cursor.execute("""
-#             SELECT 
-#                 l.log_id,
-#                 l.action_type,
-#                 l.description,
-#                 DATE_FORMAT(l.created_at, '%d %b %Y, %h:%i:%s %p') AS created_at
-#             FROM logs l
-#             ORDER BY l.created_at DESC
-#         """)
-
-#         logs = cursor.fetchall()
-
-#         return jsonify(logs), 200
-
-#     except Exception as e:
-#         print("[ERROR] Fetch logs failed:", e)
-#         return jsonify({"message": "Failed to fetch logs"}), 500
-#     finally:
-#         if cursor:
-#             cursor.close()
-#         if conn:
-#             conn.close()
-
-
 @sa_log_bp.route("/sa/logs", methods=["GET"])
 def get_logs():
     search_query = request.args.get("search", "").strip()
@@ -120,34 +90,14 @@ def purge_logs():
     except (TypeError, ValueError):
         retention_days = 30
 
-    # if retention_days < 1:
-    #    retention_days = 1
-
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # If auto‑purge is disabled and this is not a manual trigger,
-        # just acknowledge the setting change without deleting anything.
-        # if not manual and not enable_auto:
-            # return jsonify({
-                # "message": "Auto-purge disabled. No logs were deleted.",
-                # "deleted": 0,
-                # "retention_days": retention_days,
-            # }), 200
-
-        # delete_sql = """
-            # DELETE FROM logs
-            # WHERE created_at < (NOW() - INTERVAL %s DAY)
-        # """
-        # cursor.execute(delete_sql, (retention_days,))
-        # deleted_count = cursor.rowcount or 0
-        # conn.commit()
-
         if manual:
-            # 🔴 MANUAL PURGE: Delete every single log
+            # MANUAL PURGE: Delete every single log
             delete_sql = "DELETE FROM logs"
             cursor.execute(delete_sql)
         else:

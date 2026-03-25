@@ -57,11 +57,11 @@ def handle_subjects():
             image_url = None
             
             if image_file:
-                # REMARK: Ensure the local folder exists
+                # Ensure the local folder exists
                 if not os.path.exists('uploads'):
                     os.makedirs('uploads')
                 
-                # REMARK: Create a unique filename
+                # Create a unique filename
                 ext = os.path.splitext(image_file.filename)[1]
                 filename = f"subj_{user_id}_{random.randint(1000, 9999)}{ext}"
                 filepath = os.path.join('uploads', filename)
@@ -71,7 +71,7 @@ def handle_subjects():
             if not folder_name or not user_id:
                 return jsonify({'message': 'Folder name and user_id are required'}), 400
 
-            # REMARK: Prevent duplicate folder names per lecturer (Lecturer 1 cannot have two "Math 101", but Lecturer 2 can create "Math 101")
+            # Prevent duplicate folder names per lecturer
             cursor.execute(
                 "SELECT id FROM subjects WHERE lecturer_id = %s AND LOWER(TRIM(name)) = LOWER(TRIM(%s))",
                 (user_id, folder_name),
@@ -120,8 +120,6 @@ def handle_subjects():
         query = "SELECT id, name, image_url, created_at FROM subjects WHERE lecturer_id = %s ORDER BY name ASC"
         cursor.execute(query, (user_id,))
 
-
-        # cursor.execute("SELECT id, name, created_at FROM subjects ORDER BY name ASC")
         subjects = cursor.fetchall()
 
         for subject in subjects:
@@ -168,7 +166,7 @@ def handle_subject_files(subject_id):
             if not user_id:
                 return jsonify({'message': 'User ID is required'}), 400
 
-            # REMARK: Prevent duplicate schedule times in the same subject
+            # Prevent duplicate schedule times in the same subject
             cursor.execute(
                 "SELECT id FROM classes WHERE subject_id = %s AND LOWER(TRIM(schedule)) = LOWER(TRIM(%s))",
                 (subject_id, file_name),
@@ -256,7 +254,7 @@ def update_subject(subject_id):
         if not new_name or not user_id:
             return jsonify({'message': 'Name and user_id are required'}), 400
         
-        # REMARK: Prevent duplicate folder names per lecturer when renaming
+        # Prevent duplicate folder names per lecturer when renaming
         cursor.execute(
             "SELECT id FROM subjects WHERE lecturer_id = %s AND id != %s AND LOWER(TRIM(name)) = LOWER(TRIM(%s))",
             (user_id, subject_id, new_name),
@@ -276,10 +274,10 @@ def update_subject(subject_id):
 
         # Update the database
         if image_url:
-            # Update name AND image
+            # Update name and image
             cursor.execute("UPDATE subjects SET name = %s, image_url = %s WHERE id = %s", (new_name, image_url, subject_id))
         else:
-            # Update name ONLY
+            # Update name only
             cursor.execute("UPDATE subjects SET name = %s WHERE id = %s", (new_name, subject_id))
 
         # Fetch current name for logging
@@ -291,10 +289,9 @@ def update_subject(subject_id):
         old_name = old_subject['name']
 
         # Update the name in the database
-        # cursor.execute("UPDATE subjects SET name = %s WHERE id = %s", (new_name, subject_id))
         conn.commit()
 
-        print(f"Rows affected: {cursor.rowcount}")  # DEBUG PRINT
+        print(f"Rows affected: {cursor.rowcount}")
         cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
         user_row = cursor.fetchone()
         user_name = user_row['username'] if user_row else f"User ID {user_id}"
@@ -334,8 +331,6 @@ def update_class(class_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        ## Get old name for logging
-        # cursor.execute("SELECT schedule FROM classes WHERE id = %s", (class_id,))
         # Get class info (subject_id for duplicate check, schedule for logging)
         cursor.execute("SELECT subject_id, schedule FROM classes WHERE id = %s", (class_id,))
         file = cursor.fetchone()
@@ -345,7 +340,7 @@ def update_class(class_id):
         subject_id = file['subject_id']
         old_name = file['schedule']
 
-        # REMARK: Prevent duplicate schedule times in the same subject when renaming
+        # Prevent duplicate schedule times in the same subject when renaming
         cursor.execute(
             "SELECT id FROM classes WHERE subject_id = %s AND id != %s AND LOWER(TRIM(schedule)) = LOWER(TRIM(%s))",
             (subject_id, class_id, new_name),
@@ -403,8 +398,7 @@ def delete_subject(subject_id):
 
         folder_name = folder['name']
 
-        ## Delete all files in folder
-        # REMARK: Delete in order to satisfy foreign keys:
+        # Delete in order to satisfy foreign keys:
         # 1) attendance -> class_id (via classes)
         # 2) classes -> subject_id
         # 3) enrollments -> subject_id
@@ -443,8 +437,6 @@ def delete_subject(subject_id):
             cursor.close()
             conn.close()
 
-
-
 # DELETE FILE (DELETE)
 @dashboard_bp.route('/classes/<int:class_id>', methods=['DELETE'])
 def delete_class(class_id):
@@ -464,7 +456,7 @@ def delete_class(class_id):
 
         schedule_name = file['schedule']
 
-        # --- DELETE ATTENDANCE ROWS FIRST ---
+        # Delete attendance rows first
         cursor.execute("DELETE FROM attendance WHERE class_id = %s", (class_id,))
         conn.commit()
 
@@ -495,8 +487,6 @@ def delete_class(class_id):
         if conn and conn.is_connected():
             cursor.close()
             conn.close()
-
-
 
 # DELETE: Removes from DB AND Face++ Cloud
 @dashboard_bp.route('/students/<int:student_id>', methods=['DELETE'])
@@ -591,7 +581,7 @@ def serve_uploads(filename):
 @dashboard_bp.route("/students", methods=["GET"])
 def get_students():
     keyword = request.args.get("search", "").strip()
-    subject_id = request.args.get("subject_id", type=int)  # optional filter by subject
+    subject_id = request.args.get("subject_id", type=int)
 
     try:
         conn = get_db_connection()

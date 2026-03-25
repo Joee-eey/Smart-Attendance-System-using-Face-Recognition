@@ -7,23 +7,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:userinterface/providers/auth_provider.dart';
 
-// void main() {
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
-//   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-//     systemNavigationBarColor: Colors.white,
-//     systemNavigationBarDividerColor: Colors.white,
-//     systemNavigationBarIconBrightness: Brightness.dark,
-//     systemNavigationBarContrastEnforced: true,
-//     statusBarColor: Colors.white,
-//     statusBarIconBrightness: Brightness.dark,
-//   ));
-
-//   runApp(const SuperAdminUsersApp());
-// }
-
 class SuperAdminUsersApp extends StatelessWidget {
   const SuperAdminUsersApp({super.key});
 
@@ -98,25 +81,6 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
     return role[0].toUpperCase() + role.substring(1);
   }
 
-  // Future<void> fetchUsers({String search = ""}) async {
-  //   final baseUrl = dotenv.env['BASE_URL']!;
-  //   final url = Uri.parse('$baseUrl/sa/users?search=$search');
-
-  //   try {
-  //     final response = await http.get(url);
-
-  //     if (response.statusCode == 200) {
-  //       final List data = jsonDecode(response.body);
-
-  //       setState(() {
-  //         users = data.map((e) => UserItem.fromJson(e)).toList();
-  //       });
-  //     }
-  //   } catch (e) {
-  //     debugPrint("Error fetching users: $e");
-  //   }
-  // }
-
   Future<void> fetchUsers({String search = ""}) async {
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/sa/users?search=$search');
@@ -130,7 +94,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
         setState(() {
           users = data.map((e) => UserItem.fromJson(e)).toList();
           usersBackup =
-              List.from(users); // <-- keep a copy for filtering/sorting
+              List.from(users); // keep a copy for filtering/sorting
           _applyFilterAndSort(); // optional: apply any existing filter/sort
         });
       }
@@ -224,7 +188,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                               }
                             });
 
-                            _applyFilterAndSort(); // <-- Apply filter + sort
+                            _applyFilterAndSort(); // Apply filter + sort
                           },
                         );
                       }).toList(),
@@ -351,7 +315,7 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
             ),
           ),
           onChanged: (value) {
-            // Call your search function every time the user types
+            // Call search function every time the user types
             fetchUsers(search: value);
           },
         ),
@@ -404,7 +368,6 @@ class _SuperAdminUsersPageState extends State<SuperAdminUsersPage> {
                       const TextStyle(fontSize: 14, color: Color(0xB3000000)),
                 ),
                 const SizedBox(height: 5),
-                // _providerPill(user.provider),
                 _providerPill(formatRole(user.provider)),
               ],
             ),

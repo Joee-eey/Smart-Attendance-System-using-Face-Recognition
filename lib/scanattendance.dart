@@ -32,9 +32,8 @@ class _ScanAttendanceState extends State<ScanAttendance> {
 
   final ImagePicker _picker = ImagePicker();
 
-  // XFile? _capturedImage; // Store captured or picked image for preview
   List<XFile> _capturedImages = [];
-  // REMARK: kept for future "preview indicator"; remove unused warning.
+  // kept for future "preview indicator"; remove unused warning.
   // ignore: unused_field
   int _currentPreviewIndex = 0;
 
@@ -201,7 +200,7 @@ class _ScanAttendanceState extends State<ScanAttendance> {
 
         final totalRecognized = result["total_students_marked"] as int;
 
-        // REMARK: Attendance is taken now, so cancel today's "10 minutes before end" reminder.
+        // Attendance is taken now, so cancel today's "10 minutes before end" reminder.
         final preEndId = NotificationService.buildSessionNotificationId(
           classId: widget.classId,
           sessionDate: DateTime.now(),
@@ -390,41 +389,6 @@ class _ScanAttendanceState extends State<ScanAttendance> {
       ),
     );
   }
-
-  // Widget _buildCameraView() {
-  //   return GestureDetector(
-  //     onTap: () {
-  //       if (showSettings) setState(() => showSettings = false);
-  //     },
-  //     child: Stack(
-  //       alignment: Alignment.center,
-  //       children: [
-  //         if (_isCameraReady &&
-  //             _controller != null &&
-  //             _controller!.value.isInitialized)
-  //           SizedBox.expand(
-  //               // Fills the available space
-  //               child: ClipRect(
-  //             child: FittedBox(
-  //               fit: BoxFit.cover,
-  //               child: SizedBox(
-  //                 width: _controller!.value.previewSize!.height,
-  //                 height: _controller!.value.previewSize!.width,
-  //                 child: CameraPreview(_controller!),
-  //               ),
-  //             ),
-  //           ))
-  //         else
-  //           Container(color: Colors.grey[200]),
-  //         if (showGrid)
-  //           IgnorePointer(
-  //               child:
-  //                   CustomPaint(size: Size.infinite, painter: GridPainter())),
-  //         if (showSettings) _buildSettingsPanel(),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildCameraView() {
     if (!_isCameraReady ||

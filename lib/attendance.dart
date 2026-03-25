@@ -394,33 +394,6 @@ class _AttendanceState extends State<Attendance> {
     }
   }
 
-  // Future<void> deleteAttendance(int id) async {
-  //   try {
-  //     final baseUrl = dotenv.env['BASE_URL']!;
-  //     final url = Uri.parse('$baseUrl/attendance/$id');
-  //     log("Attempting to delete ID: $id at $url");
-  //     final response = await http.delete(url);
-
-  //     if (response.statusCode == 200) {
-  //       log('Record deleted successfully from DB');
-  //       setState(() {
-  //         attendanceList.removeWhere((item) => item['id'] == id);
-  //       });
-  //       fetchSummary(widget.classId);
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text("Record deleted successfully")),
-  //       );
-  //     } else {
-  //       log('Failed to delete record: ${response.body}');
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         const SnackBar(content: Text("Failed to delete record")),
-  //       );
-  //     }
-  //   } catch (e) {
-  //     log('Error deleting attendance', error: e);
-  //   }
-  // }
-
   Future<void> deleteEnrollment(int studentId) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
@@ -429,7 +402,7 @@ class _AttendanceState extends State<Attendance> {
       final response = await http.delete(url);
 
       if (response.statusCode == 200) {
-        // REMARK: Attendance is taken now, so cancel today's "10 minutes before end" reminder.
+        // Attendance is taken now, so cancel today's "10 minutes before end" reminder.
         final preEndId = NotificationService.buildSessionNotificationId(
           classId: widget.classId,
           sessionDate: DateTime.now(),
@@ -772,12 +745,6 @@ class _AttendanceState extends State<Attendance> {
                                 ),
                               );
 
-                              // if (confirmed == true && record['id'] != null) {
-                              //   setState(() {
-                              //     attendanceList.removeAt(index);
-                              //   });
-                              //   await deleteAttendance(record['id']);
-                              // }
                               if (confirmed == true &&
                                   record['student_id'] != null) {
                                 await deleteEnrollment(record['student_id']);
@@ -806,10 +773,8 @@ class _AttendanceState extends State<Attendance> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  // const Icon(Icons.account_circle_rounded,
-                                  //     size: 50, color: Color(0xFF9E9E9E)),
                                   CircleAvatar(
-                                    radius: 25, // same size as before
+                                    radius: 25,
                                     backgroundColor: const Color(0xFF9E9E9E),
                                     backgroundImage:
                                         (record['face_image_url'] != null &&
@@ -936,7 +901,7 @@ class _AttendanceState extends State<Attendance> {
                                                         Icons
                                                             .delete_forever_rounded,
                                                         color: Color(
-                                                            0xFFF84F31), // Your specific red color
+                                                            0xFFF84F31),
                                                         size: 40,
                                                       ),
                                                     ),
@@ -1057,12 +1022,6 @@ class _AttendanceState extends State<Attendance> {
                                               ),
                                             ),
                                           );
-
-                                          // if (confirmed == true &&
-                                          //     record['id'] != null) {
-                                          //   await deleteAttendance(
-                                          //       record['id']);
-                                          // }
 
                                           if (confirmed == true &&
                                               record['student_id'] != null) {

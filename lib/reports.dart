@@ -127,7 +127,6 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
     if (selectedGroupId == null) return;
 
     final formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate!);
-    // final url = '${dotenv.env['BASE_URL']}/api/reports?class_id=$selectedScheduleId&date=$formattedDate';
     String url = '${dotenv.env['BASE_URL']}/api/reports?subject_id=$selectedGroupId&date=$formattedDate';
 
     if (selectedScheduleId != null) {
@@ -530,17 +529,13 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text("Average Rate", style: TextStyle(fontSize: 13, color: Color(0x80000000))),
                   Text(avgRate, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const Text("- / + ? % vs previous week", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  /* Text("$changeRate vs previous week", 
-                     style: const TextStyle(fontSize: 12, color: Colors.grey)),*/
-                  // const Text("Last 7 days", style: TextStyle(fontSize: 13, color: Color(0x80000000))),
+                  const Text("Overall Performance", style: TextStyle(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               Row(
@@ -548,7 +543,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                   Icon(isPositive ? Icons.trending_up : Icons.trending_down, color: trendColor, size: 20),
                   const SizedBox(width: 4),
                   Text(
-                    changeRate, // e.g. +2.0%
+                    changeRate,
                     style: TextStyle(color: trendColor, fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ],
@@ -652,12 +647,6 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
                           ),
                         ]
                       );
-                        /*'Attendance: ${data['rate']}%$sessionText',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      );*/
                     }).toList();
                   },
 
@@ -801,7 +790,6 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
           selectedScheduleId = null; 
           backendSchedules = [];    
           totalPresent = "----";
-          // avgRate = "--.--%";
           dailyRate = "--%";
           studentDetails = [];
         });
@@ -831,9 +819,7 @@ class _AttendanceReportPageState extends State<AttendanceReportPage> {
         child: DropdownButton<int>(
           value: value,
           isExpanded: true,
-          // dropdownColor: Colors.white,
           dropdownColor: const Color(0xFFF5F7FB),
-          // borderRadius: BorderRadius.circular(12),
           hint: Text(hint, style: const TextStyle(color: Colors.black, fontSize: 14)),
           items: items.map<DropdownMenuItem<int>>((item) {
             return DropdownMenuItem<int>(

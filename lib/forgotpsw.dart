@@ -92,7 +92,7 @@ Widget _buildRequirementItem(String text, bool met) {
     setState(() => _isLoading = true);
 
     try {
-      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5001';
+      final baseUrl = dotenv.env['BASE_URL'] ?? '';
       final url = Uri.parse('$baseUrl/forgot-password');
 
       final response = await http.post(
@@ -129,7 +129,7 @@ Widget _buildRequirementItem(String text, bool met) {
     setState(() => _isLoading = true);
 
     try {
-      final baseUrl = dotenv.env['BASE_URL'] ?? 'http://10.0.2.2:5001';
+      final baseUrl = dotenv.env['BASE_URL'] ?? '';
       final url = Uri.parse('$baseUrl/reset-password');
 
       final response = await http.post(
@@ -166,30 +166,6 @@ Widget _buildRequirementItem(String text, bool met) {
       setState(() => _isLoading = false);
     }
   }
-
-  /* void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _showSuccessDialog(String message) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text("Success"),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to Login Screen
-            },
-            child: const Text("Back to Login"),
-          )
-        ],
-      ),
-    );
-  }*/
 
   void _showErrorDialog(String title, String message) {
     _showAnimatedDialog(

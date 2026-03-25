@@ -261,7 +261,6 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
     final baseUrl = dotenv.env['BASE_URL']!;
     final url = Uri.parse('$baseUrl/login');
-    //final url = Uri.parse('http://192.168.100.22:5001/login');
 
     // Missing email or password dialog
     if (email.isEmpty || password.isEmpty) {
@@ -532,7 +531,6 @@ class _LoginPageState extends State<LoginPage> {
                 onPressed: _isLoading
                     ? null
                     : () {
-                        // setState(() => _isLoading = true);
                         loginUser(context, _emailController.text,
                             _passwordController.text);
                       },

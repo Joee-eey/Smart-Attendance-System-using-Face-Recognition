@@ -108,7 +108,6 @@ def get_attendance():
             if r.get("face_image_url"):
                 r["face_image_url"] = f"{BASE_URL}/{r['face_image_url']}"
 
-        # print(f"[DEBUG] Attendance list for class {class_id}: {records}", flush=True)
         return jsonify(records), 200
 
     except Exception as e:

@@ -438,9 +438,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                             _profileImageUrl!.isNotEmpty) {
                           avatarImage = NetworkImage(_profileImageUrl!);
                         }
-                        /* } else {
-                          avatarImage = null;
-                        }*/
 
                         return GestureDetector(
                           onTap: () async {
@@ -929,7 +926,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                   children: [
                     Expanded(
                       child: Container(
-                        // height: 110, // removed
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0x1A1565C0),
@@ -987,7 +983,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Container(
-                        // height: 110, // removed
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0x1A1565C0),
@@ -1049,7 +1044,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
               ),
               const SizedBox(height: 16),
               Container(
-                // height: 120,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Color(0xFF1565C0),
@@ -1149,8 +1143,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                   GestureDetector(
                     onTap: _showAddAdminDialog,
                     child: Container(
-                      // width: 80,
-                      // height: 80,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Color(0xFFF6F6F6),

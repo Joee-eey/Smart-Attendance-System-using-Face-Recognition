@@ -42,7 +42,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     super.dispose();
   }
 
-  // ----------- ENROLL STUDENT FUNCTION -------------
+  // ENROLL STUDENT FUNCTION
   Future<void> enrollStudent() async {
     if (nameController.text.isEmpty ||
         idController.text.isEmpty ||
@@ -216,7 +216,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          // <-- Wrap Column to prevent overflow
+          // Wrap Column to prevent overflow
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
             child: Column(
@@ -332,13 +332,13 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   ),
                 ),
                 const SizedBox(
-                    height: 20), // optional spacing before bottom nav
+                    height: 20),
               ],
             ),
           ),
         ),
       ),
-      // ----------- BottomNavigationBar with Enroll button -----------
+      // BottomNavigationBar with Enroll button
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -74,7 +74,6 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
           iconColor: const Color(0xFF00B38A),
           title: 'Login Successful',
           message: 'Welcome back, Super Admin!',
-          // onOk: () {
           buttonText: 'Continue',
           onPressed: () {
             Navigator.of(context).pop();
@@ -121,7 +120,6 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
         icon: Icons.error_outline_rounded,
         iconColor: const Color(0xFFEA324C),
         title: 'Connection Error',
-        // message: e.toString(),
         message: 'Connection error. Please check your network and try again.',
         buttonText: 'OK',
         onPressed: () => Navigator.of(context).pop(),
@@ -131,9 +129,6 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
     }
   }
 
-  /*void _showDialog(
-      {required String title, required String message, VoidCallback? onOk}) {
-    showDialog(*/
     void _showAnimatedDialog({
     required IconData icon,
     required Color iconColor,
@@ -144,19 +139,6 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
   }) {
     showGeneralDialog(
       context: context,
-      /* builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (onOk != null) onOk();
-            },
-            child: Text('OK'),
-          ),
-        ],
-      ),*/
       barrierDismissible: false,
       barrierLabel: '',
       transitionDuration: const Duration(milliseconds: 300),
@@ -352,7 +334,6 @@ class _SuperAdminLoginPageState extends State<SuperAdminLoginPage> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        // onPressed: () {},
                         onPressed: () {
                           Navigator.push(
                             context,

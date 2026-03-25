@@ -49,9 +49,6 @@ def get_report():
     class_id = request.args.get('class_id')
     selected_date_str = request.args.get('date') 
 
-    #if not class_id or not selected_date_str:
-        #return jsonify({"error": "class_id and date are required"}), 400
-
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
 
@@ -84,10 +81,6 @@ def get_report():
         total_sessions_all_time = overall_stats['total_sessions'] or 0
         total_possible_spots = total_enrolled * total_sessions_all_time
         avg_rate_val = round((overall_stats['total_presents'] / total_possible_spots) * 100, 1) if total_possible_spots > 0 else 0.0
-
-        # Daily Rate (Selected Date)
-        # present_today = 0
-        # daily_rate = 0.0
 
         # Daily Rate & Total Present (Selected Date)
         if class_id:

@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     class_id INT NOT NULL,
     student_id INT NOT NULL,
     date DATE NOT NULL,
-    status ENUM('present', 'absent', 'late') NOT NULL,
+    status ENUM('present', 'absent') NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (class_id) REFERENCES classes(id),

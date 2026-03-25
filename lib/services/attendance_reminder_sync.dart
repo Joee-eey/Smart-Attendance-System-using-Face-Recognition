@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:userinterface/services/notification_service.dart';
 
-/// REMARK: Shared logic for syncing attendance reminders.
+/// Shared logic for syncing attendance reminders.
 /// Used by Dashboard and Settings so both use the same day-aware scheduling.
 class AttendanceReminderSync {
   static const _weekdayLabel = <int, String>{
