@@ -67,19 +67,22 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   }
 
   // Consolidated data loading
-  void _loadAllData() {
+  Future<void> _loadAllData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     final userId = authProvider.userId;
 
-    _fetchUserStats();
-    _fetchAdminStats();
-    _fetchStudentStats();
+    // Use await to ensure the RefreshIndicator knows when done
+    await Future.wait([
+      _fetchUserStats(),
+      _fetchAdminStats(),
+      _fetchStudentStats(),
+    ]);
 
     if (userId != null) {
-      _fetchUserProfile(userId);
-    }
-  }
+        _fetchUserProfile(userId);
+      }
+}
 
   Future<void> _fetchUserProfile(int userId) async {
     try {
@@ -800,6 +803,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 
                       if (success) {
                         Navigator.pop(context);
+
+                        // Refresh data immediately!
+                        _loadAllData();
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                               content:
@@ -915,22 +922,28 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      // RefreshIndicator to enable pull-to-refresh
+      body: RefreshIndicator(
+        onRefresh: _loadAllData,
+        color: const Color(0xFF1565C0),
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IntrinsicHeight(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0x1A1565C0),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+          // For pull-to-refresh to work on short lists
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0x1A1565C0),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1168,14 +1181,15 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                               fontWeight: FontWeight.w500,
                               color: Color(0xFF1565C0),
                             ),
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

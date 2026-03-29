@@ -200,33 +200,25 @@ def get_student_stats():
         cursor = conn.cursor(dictionary=True)
 
         # Total students
-        cursor.execute("SELECT COUNT(*) as total FROM students")
-        total_students = cursor.fetchone()['total']
+        cursor.execute("SELECT COUNT(*) AS total FROM students")
+        total_students = cursor.fetchone()["total"]
 
-        # Students today
+        # Students that existed before today
         cursor.execute("""
-            SELECT COUNT(*) as total_today
+            SELECT COUNT(*) AS yesterday_total
             FROM students
-            WHERE DATE(created_at) = CURDATE()
+            WHERE created_at < CURDATE()
         """)
-        total_today = cursor.fetchone()['total_today']
+        yesterday_total = cursor.fetchone()["yesterday_total"]
 
-        # Students yesterday
-        cursor.execute("""
-            SELECT COUNT(*) as total_yesterday
-            FROM students
-            WHERE DATE(created_at) = CURDATE() - INTERVAL 1 DAY
-        """)
-        total_yesterday = cursor.fetchone()['total_yesterday']
-
-        # Growth % (from yesterday to today)
-        growth_percent = 0.0
-        if total_yesterday > 0:
-            growth_percent = max(0, ((total_today - total_yesterday) / total_yesterday) * 100)
+        if yesterday_total == 0:
+            growth = 100.0 if total_students > 0 else 0.0
+        else:
+            growth = ((total_students - yesterday_total) / yesterday_total) * 100
 
         return jsonify({
             "total": total_students,
-            "growth_percent": growth_percent
+            "growth_percent": round(growth, 1),
         }), 200
 
     except Exception as e:
@@ -234,8 +226,10 @@ def get_student_stats():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
 
 
