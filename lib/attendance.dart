@@ -214,7 +214,27 @@ class _AttendanceState extends State<Attendance> {
     });
   }
 
-  void _showManualAttendanceDialog(int studentId, String name) {
+  void _showManualAttendanceDialog(
+    int studentId,
+    String name,
+    String currentStatus,
+  ) {
+    final bool isCurrentlyPresent = currentStatus.toLowerCase() == 'present';
+
+    final String newStatus = isCurrentlyPresent ? 'Absent' : 'Present';
+    final Color statusColor =
+        isCurrentlyPresent ? const Color(0xFFEA324C) : const Color(0xFF00B38A);
+
+    final Color iconBgColor =
+        isCurrentlyPresent ? const Color(0xFFFFEBEE) : const Color(0xFFE3F2FD);
+
+    final Color iconColor =
+        isCurrentlyPresent ? const Color(0xFFEA324C) : const Color(0xFF1565C0);
+
+    final IconData dialogIcon = isCurrentlyPresent
+        ? Icons.person_remove_alt_1_rounded
+        : Icons.how_to_reg_rounded;
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -228,15 +248,13 @@ class _AttendanceState extends State<Attendance> {
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  // Added const here
-                  color: Color(0xFFE3F2FD),
+                decoration: BoxDecoration(
+                  color: iconBgColor,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  // Removed const here
-                  Icons.how_to_reg_rounded,
-                  color: const Color(0xFF1565C0),
+                  dialogIcon,
+                  color: iconColor,
                   size: 40,
                 ),
               ),
@@ -254,7 +272,10 @@ class _AttendanceState extends State<Attendance> {
                 textAlign: TextAlign.center,
                 text: TextSpan(
                   style: const TextStyle(
-                      color: Colors.grey, fontSize: 15, height: 1.5),
+                    color: Colors.grey,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
                   children: [
                     const TextSpan(text: "Are you sure you want to mark\n"),
                     TextSpan(
@@ -265,11 +286,11 @@ class _AttendanceState extends State<Attendance> {
                       ),
                     ),
                     const TextSpan(text: " as "),
-                    const TextSpan(
-                      text: "Present",
+                    TextSpan(
+                      text: newStatus,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF00B38A),
+                        color: statusColor,
                       ),
                     ),
                     const TextSpan(text: "?"),
@@ -292,16 +313,45 @@ class _AttendanceState extends State<Attendance> {
                       child: const Text(
                         "Cancel",
                         style: TextStyle(
-                            color: Colors.grey, fontWeight: FontWeight.w600),
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
+                      // onPressed: () {
+                      //   Navigator.pop(context);
+                      //   updateManualAttendance(studentId, newStatus);
+                      // },
                       onPressed: () {
                         Navigator.pop(context);
-                        markAsPresentManual(studentId);
+
+                        if (newStatus == 'Present') {
+                          updateManualAttendance(studentId, newStatus);
+                        } else {
+                          // DELETE attendance instead of creating "Absent"
+                          final record = attendanceList.firstWhere(
+                            (e) => e['student_id'] == studentId,
+                            orElse: () => {},
+                          );
+
+                          if (record.isNotEmpty && record['id'] != null) {
+                            final attendanceId =
+                                int.tryParse(record['id'].toString());
+
+                            if (attendanceId != null) {
+                              deleteAttendance(attendanceId);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text("Invalid attendance ID")),
+                              );
+                            }
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1565C0),
@@ -314,7 +364,9 @@ class _AttendanceState extends State<Attendance> {
                       child: const Text(
                         "Confirm",
                         style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w600),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -366,7 +418,7 @@ class _AttendanceState extends State<Attendance> {
     }
   }
 
-  Future<void> markAsPresentManual(int studentId) async {
+  Future<void> updateManualAttendance(int studentId, String status) async {
     try {
       final baseUrl = dotenv.env['BASE_URL']!;
       final response = await http.post(
@@ -374,7 +426,7 @@ class _AttendanceState extends State<Attendance> {
         body: jsonEncode({
           'class_id': widget.classId,
           'student_id': studentId,
-          'status': 'Present',
+          'status': status,
         }),
         headers: {"Content-Type": "application/json"},
       );
@@ -382,15 +434,56 @@ class _AttendanceState extends State<Attendance> {
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text("Student marked as Present"),
+            content: Text("Student marked as $status"),
             behavior: SnackBarBehavior.floating,
           ),
         );
+
         fetchAttendance(widget.classId);
         fetchSummary(widget.classId);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to update attendance: ${response.body}"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
-      log("Error marking manual attendance: $e");
+      log("Error updating manual attendance: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Error updating attendance"),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> deleteAttendance(int attendanceId) async {
+    try {
+      final baseUrl = dotenv.env['BASE_URL']!;
+      final response = await http.delete(
+        Uri.parse('$baseUrl/attendance/$attendanceId'),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Marked as Absent"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        fetchAttendance(widget.classId);
+        fetchSummary(widget.classId);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: ${response.body}")),
+        );
+      }
+    } catch (e) {
+      log("Error deleting attendance: $e");
     }
   }
 
@@ -409,7 +502,7 @@ class _AttendanceState extends State<Attendance> {
           type: 2,
         );
         await NotificationService.cancel(preEndId);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Student removed from class"),
@@ -755,11 +848,11 @@ class _AttendanceState extends State<Attendance> {
                           },
                           child: GestureDetector(
                             onLongPress: () {
-                              if (record['status'].toString().toLowerCase() ==
-                                  'absent') {
-                                _showManualAttendanceDialog(
-                                    record['student_id'], record['name']);
-                              }
+                              _showManualAttendanceDialog(
+                                record['student_id'],
+                                record['name'],
+                                record['status']?.toString() ?? 'Absent',
+                              );
                             },
                             child: Container(
                               height: 78,
@@ -776,24 +869,44 @@ class _AttendanceState extends State<Attendance> {
                                   CircleAvatar(
                                     radius: 25,
                                     backgroundColor: const Color(0xFF9E9E9E),
-                                    backgroundImage:
-                                        (record['face_image_url'] != null &&
-                                                record['face_image_url']
-                                                    .toString()
-                                                    .isNotEmpty)
-                                            ? NetworkImage(
-                                                record['face_image_url']
-                                                    .toString())
-                                            : null,
-                                    child: (record['face_image_url'] == null ||
-                                            record['face_image_url']
-                                                .toString()
-                                                .isEmpty)
-                                        ? const Icon(
-                                            Icons.account_circle_rounded,
-                                            color: Colors.white,
-                                            size: 30)
-                                        : null,
+                                    child: ClipOval(
+                                      child:
+                                          (record['face_image_url'] != null &&
+                                                  record['face_image_url']
+                                                      .toString()
+                                                      .isNotEmpty)
+                                              ? Builder(
+                                                  builder: (context) {
+                                                    final imageUrl =
+                                                        record['face_image_url']
+                                                            .toString();
+                                                    log("Student image URL: $imageUrl");
+
+                                                    return Image.network(
+                                                      imageUrl,
+                                                      width: 50,
+                                                      height: 50,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                          error, stackTrace) {
+                                                        log("Image load failed: $imageUrl");
+                                                        log("Error: $error");
+                                                        return const Icon(
+                                                          Icons
+                                                              .account_circle_rounded,
+                                                          color: Colors.white,
+                                                          size: 30,
+                                                        );
+                                                      },
+                                                    );
+                                                  },
+                                                )
+                                              : const Icon(
+                                                  Icons.account_circle_rounded,
+                                                  color: Colors.white,
+                                                  size: 30,
+                                                ),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -900,8 +1013,8 @@ class _AttendanceState extends State<Attendance> {
                                                       child: const Icon(
                                                         Icons
                                                             .delete_forever_rounded,
-                                                        color: Color(
-                                                            0xFFF84F31),
+                                                        color:
+                                                            Color(0xFFF84F31),
                                                         size: 40,
                                                       ),
                                                     ),

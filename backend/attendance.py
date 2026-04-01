@@ -61,6 +61,8 @@ def attendance_taken_today():
 
 @attendance_bp.route("/attendance", methods=["GET"])
 def get_attendance():
+    conn = None
+    cursor = None
     try:
         class_id = request.args.get("class_id", type=int)
         if not class_id:
@@ -76,9 +78,10 @@ def get_attendance():
             return jsonify({"error": "Class not found"}), 404
         subject_id = class_row["subject_id"]
 
-        # Fetch students enrolled in this subject with their attendance for today
+        # Fetch students enrolled in this subject with attendance for today
         cursor.execute("""
             SELECT 
+                COALESCE(a.id, CONCAT('student_', s.id)) AS id,
                 s.id AS student_id,
                 s.name,
                 s.student_card_id,
@@ -106,7 +109,10 @@ def get_attendance():
 
         for r in records:
             if r.get("face_image_url"):
-                r["face_image_url"] = f"{BASE_URL}/{r['face_image_url']}"
+                image_path = str(r["face_image_url"]).replace("\\", "/").lstrip("/")
+                r["face_image_url"] = f"{BASE_URL.rstrip('/')}/{image_path}"
+
+        print("[DEBUG] Attendance records:", records, flush=True)
 
         return jsonify(records), 200
 
@@ -115,23 +121,33 @@ def get_attendance():
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if 'conn' in locals() and conn.is_connected():
+        if cursor:
             cursor.close()
+        if conn and conn.is_connected():
             conn.close()
 
 @attendance_bp.route("/attendance/manual", methods=["POST"])
 def mark_manual():
+    conn = None
+    cursor = None
     try:
-        data = request.json
+        data = request.get_json()
+
         class_id = data.get("class_id")
         student_id = data.get("student_id")
         status = data.get("status", "Present")
         today = datetime.now().date()
 
+        if not class_id or not student_id:
+            return jsonify({"error": "class_id and student_id are required"}), 400
+
+        status = status.strip().capitalize()
+        if status not in ["Present", "Absent"]:
+            return jsonify({"error": "Invalid status. Must be Present or Absent"}), 400
+
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Check if record exists for today, if yes update, else insert
         query = """
             INSERT INTO attendance (class_id, student_id, date, status)
             VALUES (%s, %s, %s, %s)
@@ -145,16 +161,25 @@ def mark_manual():
             WHERE id = (SELECT subject_id FROM classes WHERE id = %s)
         """
         cursor.execute(update_subject_query, (class_id,))
+
         conn.commit()
 
-        return jsonify({"message": "Status updated"}), 200
+        return jsonify({
+            "message": f"Attendance updated to {status}",
+            "status": status
+        }), 200
+
     except Exception as e:
         if conn:
             conn.rollback()
+        print(f"[ERROR] Manual attendance update failed: {e}", flush=True)
         return jsonify({"error": str(e)}), 500
+
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
 @attendance_bp.route("/attendance/summary", methods=["GET"])
 def get_attendance_summary():
@@ -224,10 +249,11 @@ def delete_attendance(attendance_id):
 
         # Delete the record from the 'attendance' table
         cursor.execute("DELETE FROM attendance WHERE id = %s", (attendance_id,))
-        conn.commit()
-
         if cursor.rowcount == 0:
+            conn.rollback()
             return jsonify({'message': 'Record not found'}), 404
+
+        conn.commit()
 
         return jsonify({'message': 'Attendance record deleted successfully'}), 200
 
