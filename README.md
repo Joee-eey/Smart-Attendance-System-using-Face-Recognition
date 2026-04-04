@@ -1,4 +1,4 @@
-<h1 align="center">📸 Cheese! — Smart Attendance System using Face Recognition</h1>
+<h1 align="center">📸 Cheese! - a Smart Attendance System using Face Recognition</h1>
 <p align="center">
   <p align="center">
   <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" />
