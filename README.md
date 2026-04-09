@@ -80,6 +80,144 @@ Smart-Attendance-System
 └── README.md
 ```
 
+---
+
+## ⚙️ System Setup Guide
+
+Follow the steps below to run the Smart Attendance System locally.
+
+### 1️⃣ Create Environment Configuration
+Create a .env file in the project root and paste the following configuration.
+
+```bash
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=attendance
+DB_USERNAME=root
+DB_PASSWORD=Replace_your_database_password_here
+BASE_URL=http://Replace_your_IP_address_here:5001
+
+FACEPP_API_KEY=KfxxQWLMqnV6TpTaa-xGnNLaEsupSCdM
+FACEPP_API_SECRET=TmI9hI0v2eQcAkGvYanc7-Facf5G6Czx
+FACESET_TOKEN=66eff4c1271d4fd7474a0e37901d1b4a
+
+# Face++ Endpoints
+DETECT_URL=https://api-us.faceplusplus.com/facepp/v3/detect
+SEARCH_URL=https://api-us.faceplusplus.com/facepp/v3/search
+FACESET_CREATE_URL=https://api-us.faceplusplus.com/facepp/v3/faceset/create
+FACESET_ADD_URL=https://api-us.faceplusplus.com/facepp/v3/faceset/addface
+FACESET_REMOVE_URL=https://api-us.faceplusplus.com/facepp/v3/faceset/removeface
+
+# Microsoft Login
+MS_CLIENT_ID=caa35c01-871c-4fda-8942-ec8804def57a
+MS_TENANT_ID=common
+MS_ANDROID_REDIRECT_URI=msauth://com.cheese.smartattendanceapp/7ZWvbuLU0UvajLWOffjxZLG34eM%3D
+
+# Gmail API
+GOOGLE_CREDENTIALS_PATH=credentials.json
+GOOGLE_TOKEN_PATH=token.json
+```
+
+#### ⚠️ Important
+
+- Replace the database password.
+- Replace the IP address with your local machine IP.
+- Do not include quotation marks (" ").
+
+#### Example:
+
+- DB_PASSWORD=123456
+- BASE_URL=http://192.168.1.10:5001
+
+### 2️⃣ Pull the Latest Source Code
+
+```bash
+git pull
+```
+
+### 3️⃣ Run Database Migration
+
+```bash
+python migration/migrate.py
+python migration/insert_superadmin.py
+python migration/insert_resetpswotp.py
+```
+
+### 4️⃣ Generate Android Signing Report
+
+```bash
+cd android
+.\gradlew signingReport
+```
+
+### 5️⃣ Setup Python Virtual Environment
+
+#### Navigate to backend directory:
+
+```bash
+cd backend
+```
+
+#### Create virtual environment.
+
+- Windows
+
+```bash
+python -m venv .venv
+.\.venv\Scripts\activate
+```
+
+- Mac / Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 6️⃣ Install Required Dependencies
+
+```bash
+pip install mysql-connector-python python-dotenv flask flask-cors flask-bcrypt requests pillow
+```
+
+- Test Pillow installation:
+
+```bash
+python
+from PIL import Image
+```
+
+If no error appears, exit Python.
+
+```bash
+exit()
+```
+
+- Install additional dependencies:
+
+```bash
+pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib flask-mail google
+```
+
+### 7️⃣ Run Backend Server
+```bash
+python app.py
+```
+
+### 8️⃣ Default Super Admin Login
+
+You can log in using the sample account below.
+
+- Email
+
+superadmin@gmail.com
+
+- Password
+
+Superadmin@1
+
+---
+
 ## ⚠️ Problems with Traditional Systems
 
 - ❌ Time-consuming manual roll calls  

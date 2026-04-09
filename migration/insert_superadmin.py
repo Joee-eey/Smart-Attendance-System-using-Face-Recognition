@@ -27,7 +27,7 @@ bcrypt = Bcrypt()
 # Superadmin details
 superadmin_username = "superadmin1"
 superadmin_email = "superadmin@gmail.com"
-superadmin_password = bcrypt.generate_password_hash("123qwe").decode('utf-8')
+superadmin_password = bcrypt.generate_password_hash("Superadmin@1").decode('utf-8')
 
 # Check if superadmin already exists
 cursor.execute("""
